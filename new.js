@@ -1,4 +1,4 @@
-const dashboardApiUrl = 'http://localhost:3000';
+const dashboardApiUrl = window.location.origin;
 
 function checkAuth() {
     const token = localStorage.getItem('authToken');
