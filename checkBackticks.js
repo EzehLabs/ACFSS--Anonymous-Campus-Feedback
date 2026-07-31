@@ -1,0 +1,1 @@
+const fs=require('fs');const p='C:/Users/USER/Desktop/Anonymous website/new.html';const s=fs.readFileSync(p,'utf8');const backticks=(s.match(/`/g)||[]).length;console.log('Backticks:',backticks);const templateLiterals=(s.match(/\`[\s\S]*?\`/g)||[]).length;console.log('Template literal matches (non-greedy):',templateLiterals);

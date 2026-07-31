@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="mai.css">
+      <script src="https://kit.fontawesome.com/7bea1bc832.js" crossorigin="anonymous"></script>
+    <style>
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .create-admin-form {
+            background: #f5f6f7;
+            padding: 20px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+
+
+
+
+
+
+
+            font-weight: 600;
+
+
+
+
+
+
+
+            color: #1e293b;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .form-group input {
+
+
+
+
+
+
+
+            width: 100%;
+
+
+
+
+
+
+
+            padding: 10px;
+
+
+
+
+
+
+
+            border: 1px solid #e5e7eb;
+
+
+
+
+
+
+
+            border-radius: 8px;
+
+
+
+
+
+
+
+            font-size: 14px;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .form-group button {
+
+
+
+
+
+
+
+            background: #F48C06;
+
+
+
+
+
+
+
+            color: white;
+
+
+
+
+
+
+
+            padding: 10px 20px;
+
+
+
+
+
+
+
+            border: none;
+
+
+
+
+
+
+
+            border-radius: 8px;
+
+
+
+
+
+
+
+            cursor: pointer;
+
+
+
+
+
+
+
+            font-weight: 600;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .form-group button:hover {
+
+
+
+
+
+
+
+            background: #b96c07;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .form-group button:disabled {
+
+
+
+
+
+
+
+            background: #ccc;
+
+
+
+
+
+
+
+            cursor: not-allowed;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .no-permission {
+
+
+
+
+
+
+
+            background: #fff3e4;
+
+
+
+
+
+
+
+            padding: 16px;
+
+
+
+
+
+
+
+            border-radius: 8px;
+
+
+
+
+
+
+
+            color: #c2410c;
+
+
+
+
+
+
+
+            margin-bottom: 16px;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .complaints-container {
+
+
+
+
+
+
+
+            max-height: 600px;
+
+
+
+
+
+
+
+            overflow-y: auto;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .queue-card {
+
+
+
+
+
+
+
+            cursor: pointer;
+
+
+
+
+
+
+
+            transition: all 0.2s ease;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .queue-card:hover {
+
+
+
+
+
+
+
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+                .queue-card.selected {
+
+
+
+
+
+
+
+                    border-color: #F48C06;
+
+
+
+
+
+
+
+                    box-shadow: 0 12px 28px rgba(244, 140, 6, 0.18);
+
+
+
+
+
+
+
+                }
+
+                .complaint-details {
+                    display: none;
+                    background: #f5f6f7;
+                    padding: 16px;      
+                    border-radius: 8px;
+                    margin-top: 12px;
+                }
+        .complaint-details.show {
+
+
+
+
+
+
+
+            display: block;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .admin-list {
+
+
+
+
+
+
+
+            background: #fff;
+
+
+
+
+
+
+
+            border-radius: 8px;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .admin-item {
+
+
+
+
+
+
+
+            padding: 12px;
+
+
+
+
+
+
+
+            border-bottom: 1px solid #e5e7eb;
+
+
+
+
+
+
+
+            display: flex;
+
+
+
+
+
+
+
+            justify-content: space-between;
+
+
+
+
+
+
+
+            align-items: center;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        .admin-item:last-child {
+
+
+
+
+
+
+
+            border-bottom: none;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+    </style>
+
+
+
+
+
+
+
+<body>
+
+
+
+
+
+
+
+    <!--Nav bar-->
+
+
+
+
+
+
+
+    <div class="nav">
+
+
+
+
+
+
+
+        <div class="topbar">
+
+
+
+
+
+
+
+            
+
+
+
+
+
+
+
+            <div class="brand">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="brand-icon" style="border-radius: 50%;background: #F48C06;">
+
+
+
+
+
+
+
+                    <img src="images/profile.jpg" alt="">
+
+
+
+
+
+
+
+                    <span class="online-dot" aria-label="Online" title="Online"></span>
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div>
+
+
+
+
+
+
+
+                    <div class="brand-title" style="font-weight: 700;font-size: 18px;"><span id="adminName">Admin</span> <span style="font-size:12px;color:var(--muted);margin-left:8px" id="adminBadge"></span></div>
+
+
+
+
+
+
+
+                    <div class="brand-subtitle"><span id="adminEmail">admin@futo.edu.ng</span> · Super Administrator Console</div>
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+            </div>
+
+
+
+
+
+
+
+           <!--Button-->
+
+
+
+
+
+
+
+            <div class="top-actions">
+
+
+
+
+
+
+
+                <button id="exportCsvBtn" type="button" class="secondary-btn">Export CSV</button>
+
+
+
+
+
+
+
+
+                <button id="signOutBtn" class="primary-btn" type="button">Sign Out</button>
+
+
+
+
+
+
+
+            </div> 
+
+
+
+
+
+
+
+            
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+     
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!--Contents-->
+
+
+
+
+
+
+
+    <div class="dashboard">
+
+
+
+
+
+
+
+        <!--Contents-->
+
+
+
+
+
+
+
+        <div class="bx">
+
+
+
+
+
+
+
+            <div class="panel-left">
+
+
+
+
+
+
+
+                <div class="tab-strip" role="tablist">
+                    <button class="tab" data-index="0" role="tab" aria-selected="true">Quarantine Queue</button>
+                    <button class="tab" data-index="1" role="tab" aria-selected="false">Admin Accounts</button>
+                    <button class="tab" data-index="2" role="tab" aria-selected="false">NLP Filter Logs</button>
+                    <button class="tab" data-index="3" role="tab" aria-selected="false">Pipeline Settings</button>
+                </div>
+                <div id="tabPlaceholder" class="tab-placeholder" style="display: none; padding: 24px; color: #64748b;">
+                    Use the right-hand details panel to manage admin accounts, review NLP filter logs, or configure pipeline settings.
+                </div>
+
+                <!-- Tab 0: Quarantine Queue -->
+
+
+
+
+
+
+
+                <div class="tab-content active" id="tab-0">
+
+
+
+
+
+
+
+                    <div class="complaints-container" id="complaintsContainer">
+
+
+
+
+
+
+
+                        <p style="text-align: center; color: #999;">Loading complaints...</p>
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <!-- Tab 1: Admin Accounts -->
+
+
+
+
+
+
+
+                <div class="tab-content" id="tab-1">
+
+
+
+
+
+
+
+                    <div id="adminManagement">
+
+
+
+
+
+
+
+                        <div id="createAdminSection"></div>
+
+
+
+
+
+
+
+                        <h3 style="margin-top: 20px; margin-bottom: 12px;">Existing Admins</h3>
+
+
+
+
+
+
+
+                        <div class="admin-list" id="adminsList"></div>
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <!-- Tab 2: NLP Filter Logs -->
+
+
+
+
+
+
+
+                <div class="tab-content" id="tab-2">
+
+
+
+
+
+
+
+                    <p>NLP Filter Logs will be available soon</p>
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <!-- Tab 3: Pipeline Settings -->
+
+
+
+
+
+
+
+                <div class="tab-content" id="tab-3">
+
+
+
+
+
+
+
+                    <p>Pipeline Settings will be available soon</p>
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+            </div>
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+         <!--Big Contents-->
+
+
+
+
+
+
+
+        <div class="bigx">
+
+
+
+
+
+
+
+            <div id="bigxDetails" style="padding: 24px; min-height: 420px; color: #64748b;">
+
+
+
+
+
+
+
+                Select a complaint from the left panel to view the full details here.
+
+
+
+
+
+
+
+            </div>
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+<!--Contents3-->
+
+
+
+
+
+
+
+    <div class="metrics-row">
+
+
+
+
+
+
+
+      <!--Box 1-->
+
+
+
+
+
+
+
+      <div class="bx">
+
+
+
+
+
+
+
+        <p class="text">TOTAL FILED</p>
+
+
+
+
+
+
+
+        <h3 class="num" id="totalFiled">0</h3>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       <!--Box 1-->
+
+
+
+
+
+
+
+      <div class="bx">
+
+
+
+
+
+
+
+         <p class="text">UNREVIEWED</p>
+
+
+
+
+
+
+
+        <h3 class="num" style="color: #f5b500;" id="unreviewed">0</h3>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       <!--Box 1-->
+
+
+
+
+
+
+
+      <div class="bx">
+
+
+
+
+
+
+
+         <p class="text">HIGH / URGENT</p>
+
+
+
+
+
+
+
+        <h3 class="num" style="color: #ff637e;" id="urgent">0</h3>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       <!--Box 1-->
+
+
+
+
+
+
+
+      <div class="bx">
+
+
+
+
+
+
+
+         <p class="text">RESOLVED</p>
+
+
+
+
+
+
+
+        <h3 class="num" style="color: #01cc8c;" id="resolved">0</h3>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+<!--Contents 4-->
+
+    <div class="search-panel">
+        <div class="search-input-wrapper">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="searchInput" class="search-input" type="search" placeholder="Search reference code or feedback content text..." />
+        </div>
+          
+        <div class="filter-row">
+            <select id="categoryFilter"><option value="all">All Categories</option></select>
+            <select id="statusFilter"><option value="all">All Statuses</option></select>
+            <select id="priorityFilter"><option value="all">All Priorities</option></select>
+            <select id="sentimentFilter"><option value="all">All Sentiments</option></select>
+            <select id="sortSelect">
+                <option value="newest">Sort: Newest</option>
+                <option value="oldest">Sort: Oldest</option>
+                <option value="priority_desc">Sort: Priority High→Low</option>
+                <option value="priority_asc">Sort: Priority Low→High</option>
+            </select>
+        </div>
+
+    </div>
+
+    <!-- Table shell moved below search panel so filters stay in their own container -->
+    <div class="table-shell" style="margin-top: 24px;">
+        <div class="table-header">
+            <div>Reference</div>
+            <div>Category</div>
+            <div>Details</div>
+            <div>Status</div>
+            <div>Priority</div>
+            <div>Sentiment</div>
+            <div>Submitted</div>
+        </div>
+        <div id="complaintsTable" class="table-body">
+            <div class="table-row alternate">
+                <div style="grid-column: 1 / -1; padding: 22px; color: #64748b; text-align: center;">Use the filters above or enter a reference code to narrow down complaints.</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+
+
+
+
+
+
+
+<script src="new.js"></script>
+
+</body>
+
+
+</html>
+
+
+
+
+
+
+

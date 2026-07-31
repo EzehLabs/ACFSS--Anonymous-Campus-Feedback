@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SuperAdmin Console</title>
+    <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+    <div class="page-shell">
+        <div class="cov">
+        <header class="topbar">
+            <div class="brand">
+
+                <div class="brand-icon" style="border-radius: 50%;background: #F48C06;">
+                    <img src="images/profile.jpg" alt="">
+                </div>
+
+                <div>
+                    <div class="brand-title">Superadmin <span style="font-size:12px;color:var(--muted);margin-left:8px">@ SUPER ADMIN</span></div>
+                    <div class="brand-subtitle">superadmin@futo.edu.ng · Super Administrator Console</div>
+                </div>
+            </div>
+
+            <div class="top-actions">
+                <button class="secondary-btn">Export CSV</button>
+                <button class="primary-btn">Sign Out</button>
+            </div>    
+        </header>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <main class="dashboard">
+
+            <section class="content-panel">
+                <div class="panel-left">
+                    <div class="tab-strip" role="tablist">
+                        <button class="tab active" data-index="0" role="tab" aria-selected="true">Quarantine Queue (1)</button>
+                        <button class="tab" data-index="1" role="tab" aria-selected="false">Admin Accounts</button>
+                        <button class="tab" data-index="2" role="tab" aria-selected="false">NLP Filter Logs</button>
+                        <button class="tab" data-index="3" role="tab" aria-selected="false">Pipeline Settings</button>
+                    </div>
+
+                    <article class="queue-card">
+                        <div class="queue-header">
+                            <span class="queue-tag">Quarantine Item</span>
+                            <span class="queue-date">7/23/26</span>
+                        </div>
+                        <h3 class="queue-title">FUTOPX3 · Lecturer Behaviour</h3>
+                        <p class="queue-copy">The lecturer for IFT 411, Dr. Innocent Okafor, was very late to class today and spoke in a very derogatory manner to students...</p>
+                    </article>
+
+                    <article class="queue-card">
+                        <div class="queue-header">
+                            <span class="queue-tag">Quarantine Item</span>
+                            <span class="queue-date">7/21/26</span>
+                        </div>
+                        <h3 class="queue-title">FUTOAB78 · School Facilities</h3>
+                        <p class="queue-copy">The internet connection at the IFT department has been down intermittently affecting lectures and online submissions...</p>
+                    </article>
+                </div>
+
+                <div class="panel-right">
+                    <div class="slider" aria-live="polite">
+                        <div class="slides">
+                            <!-- Slide 0: Quarantine Queue / Detail view -->
+                            <section class="slide" id="slide-0">
+                                <div class="detail-empty">
+                                    <div class="detail-icon">👁</div>
+                                    <p>Select a quarantine item from the left feed to inspect.</p>
+                                </div>
+                            </section>
+
+                            <!-- Slide 1: Admin Accounts -->
+                            <section class="slide" id="slide-1">
+                                <h3 style="margin-top:0;margin-bottom:12px;color:#cfe0ff">Admin Accounts</h3>
+
+                                <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">
+                                    <form id="create-staff-form" style="background:rgba(255,255,255,0.02);padding:14px;border-radius:10px;max-width:520px;flex:1">
+                                        <div style="display:grid;gap:8px">
+                                            <label style="color:var(--muted);font-size:13px">Full name</label>
+                                            <input id="staff-fullname" type="text" placeholder="Full name" required style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+
+                                            <label style="color:var(--muted);font-size:13px">Email address</label>
+                                            <input id="staff-email" type="email" placeholder="email@futo.edu.ng" required style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+
+                                            <label style="color:var(--muted);font-size:13px">Password</label>
+                                            <div style="display:flex;gap:8px;align-items:center">
+                                                <input id="staff-password" type="password" placeholder="Minimum 8 characters" required style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+                                                <button id="toggle-password" type="button" class="secondary-btn" style="padding:8px 10px">Show</button>
+                                            </div>
+
+                                            <label style="color:var(--muted);font-size:13px">Role</label>
+                                            <select id="staff-role" style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit">
+                                                <option>Admin</option>
+                                                <option>Moderator</option>
+                                                <option>Reviewer</option>
+                                            </select>
+
+                                            <div style="display:flex;gap:8px;margin-top:8px">
+                                                <button id="create-staff-btn" class="primary-btn" type="submit">Create Staff</button>
+                                                <button id="reset-staff-btn" class="secondary-btn" type="button">Reset</button>
+                                            </div>
+
+                                            <div id="account-msg" style="color:var(--muted);font-size:13px;margin-top:8px"></div>
+                                        </div>
+                                    </form>
+
+                                    <div style="flex:1;min-width:320px;max-height:320px;overflow:auto;background:rgba(255,255,255,0.02);padding:12px;border-radius:10px">
+                                        <strong style="color:var(--muted)">Existing Admin Accounts</strong>
+                                        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#e6eef8;margin-top:8px">
+                                            <thead style="color:var(--muted);text-align:left">
+                                                <tr>
+                                                    <th style="padding:8px 6px">Name</th>
+                                                    <th style="padding:8px 6px">Email</th>
+                                                    <th style="padding:8px 6px">Role</th>
+                                                    <th style="padding:8px 6px">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="admin-accounts-body">
+                                                <!-- rows populated by JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Slide 2: NLP Filter Logs -->
+                            <section class="slide" id="slide-2">
+                                <h3 style="margin-top:0;margin-bottom:12px;color:#cfe0ff">NLP Filter Logs</h3>
+                                <div style="color:var(--muted);font-size:13px">
+                                    <p style="margin-bottom:8px">Recent classifier activity and auto-filter events.</p>
+                                    <ul style="list-style:none;padding-left:0">
+                                        <li style="padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px">[7/24/26 05:12] <strong>FUTOPX3</strong> flagged as Negative · model v1.3</li>
+                                        <li style="padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px">[7/23/26 20:01] <strong>FUTOAB78</strong> auto-accepted · model v1.2</li>
+                                    </ul>
+                                </div>
+                            </section>
+
+                            <!-- Slide 3: Pipeline Settings -->
+                            <section class="slide" id="slide-3">
+                                <h3 style="margin-top:0;margin-bottom:12px;color:#cfe0ff">Pipeline Settings</h3>
+                                <form style="display:grid;gap:10px;max-width:520px">
+                                    <label style="color:var(--muted);font-size:13px">Automatic quarantine threshold</label>
+                                    <input type="range" min="0" max="100" value="65" />
+
+                                    <label style="color:var(--muted);font-size:13px">Active NLP model</label>
+                                    <select>
+                                        <option>model-v1.3 (Recommended)</option>
+                                        <option>model-v1.2</option>
+                                    </select>
+
+                                    <div style="display:flex;gap:8px;margin-top:8px">
+                                        <button class="primary-btn" type="button">Save</button>
+                                        <button class="secondary-btn" type="button">Reset</button>
+                                    </div>
+                                </form>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="metrics-row">
+                <div class="metric-card">
+                    <span class="metric-number">4</span>
+                    <span class="metric-label">Total Filed</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-number">2</span>
+                    <span class="metric-label">Unreviewed</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-number">2</span>
+                    <span class="metric-label">High / Urgent</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-number">1</span>
+                    <span class="metric-label">Resolved</span>
+                </div>
+            </section>
+
+            <section class="search-panel">
+                <input class="search-input" type="search" placeholder="Search reference code or feedback content text..." />
+                <div class="filter-row">
+                    <select><option>All Categories</option></select>
+                    <select><option>All Statuses</option></select>
+                    <select><option>All Priorities</option></select>
+                    <select><option>All Sentiments</option></select>
+                </div>
+            </section>
+
+            <section class="table-shell">
+                <div class="table-header">
+                    <span>Reference</span>
+                    <span>Category</span>
+                    <span>Submission Preview</span>
+                    <span>Sentiment</span>
+                    <span>Priority</span>
+                    <span>Status</span>
+                    <span>Date</span>
+                </div>
+
+                <div class="table-row">
+                    <span>FUTOAB78</span>
+                    <span>School Facilities</span>
+                    <span>The internet connection at the IFT department b...</span>
+                    <span class="tag negative">Negative</span>
+                    <span class="tag high">High</span>
+                    <span class="tag review">Under Review</span>
+                    <span>7/21/26</span>
+                </div>
+
+                <div class="table-row alternate">
+                    <span>FUT0L3P9</span>
+                    <span>Academic Issues</span>
+                    <span>Can we have more hands-on practical classes for...</span>
+                    <span class="tag neutral">Neutral</span>
+                    <span class="tag medium">Medium</span>
+                    <span class="tag resolved">Resolved</span>
+                    <span>7/19/26</span>
+                </div>
+
+                <div class="table-row">
+                    <span>FUT0Q8W2</span>
+                    <span>Hostel Problems</span>
+                    <span>The male hostel block C has a leaking toilet on t...</span>
+                    <span class="tag negative">Negative</span>
+                    <span class="tag low">Low</span>
+                    <span class="tag resolved">Received</span>
+                    <span>7/23/26</span>
+                </div>
+
+                <div class="table-row alternate">
+                    <span>FUTOPX3</span>
+                    <span>Lecturer Behaviour</span>
+                    <span>The lecturer for IFT 411, [REDACTED NAME], was...</span>
+                    <span class="tag negative">Negative</span>
+                    <span class="tag high">High</span>
+                    <span class="tag review">Received</span>
+                    <span>7/23/26</span>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+        // Simple tab slider: left-side tab buttons control the right-side slider.
+        (function(){
+            const tabs = document.querySelectorAll('.tab-strip .tab');
+            const slides = document.querySelector('.slides');
+            if (!tabs.length || !slides) return;
+
+            function goTo(index){
+                slides.style.transform = `translateX(-${index * 100}%)`;
+                tabs.forEach((t, i) => {
+                    t.classList.toggle('active', i === index);
+                    t.setAttribute('aria-selected', i === index ? 'true' : 'false');
+                });
+            }
+
+            tabs.forEach((t) => {
+                t.addEventListener('click', () => {
+                    const i = Number(t.getAttribute('data-index') || 0);
+                    goTo(i);
+                });
+                t.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); }
+                });
+            });
+
+            // start on the active tab if present
+            const activeTab = document.querySelector('.tab-strip .tab.active');
+            const startIndex = activeTab ? Number(activeTab.getAttribute('data-index') || 0) : 0;
+            // ensure slides have correct width on load/resize
+            function refresh(){
+                // slides use flex with 100% widths, transform is percentage based so nothing required here
+                goTo(startIndex);
+            }
+            window.addEventListener('resize', refresh);
+            refresh();
+        })();
+    </script>
+    <script>
+        // Admin accounts management (client-side, localStorage-backed)
+        (function(){
+            const STORAGE_KEY = 'adminAccounts_v1';
+            const form = document.getElementById('create-staff-form');
+            const fullnameEl = document.getElementById('staff-fullname');
+            const emailEl = document.getElementById('staff-email');
+            const passwordEl = document.getElementById('staff-password');
+            const roleEl = document.getElementById('staff-role');
+            const msgEl = document.getElementById('account-msg');
+            const tbody = document.getElementById('admin-accounts-body');
+            const togglePwd = document.getElementById('toggle-password');
+            const resetBtn = document.getElementById('reset-staff-btn');
+
+            const defaults = [
+                {id: 'a1', name: 'Dr. Innocent Okafor', email: 'i.okafor@futo.edu.ng', role: 'Moderator', createdAt: new Date().toISOString()},
+                {id: 'a2', name: 'Adaeze N.', email: 'adaeze@futo.edu.ng', role: 'Admin', createdAt: new Date().toISOString()}
+            ];
+
+            function getAccounts(){
+                try{
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    return raw ? JSON.parse(raw) : null;
+                }catch(e){ return null }
+            }
+            function saveAccounts(list){
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+            }
+
+            function ensureSeed(){
+                if(!getAccounts()) saveAccounts(defaults);
+            }
+
+            function getAccountInitials(name){
+                if(!name) return '';
+                const parts = name.trim().split(/\s+/);
+                if(parts.length === 1) return parts[0][0].toUpperCase();
+                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            }
+
+            function renderAccounts(){
+                const accounts = getAccounts() || [];
+                tbody.innerHTML = '';
+                if(accounts.length === 0){
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:var(--muted)">No accounts yet.</td></tr>';
+                    return;
+                }
+                accounts.forEach(acc => {
+                    const initials = getAccountInitials(acc.name);
+                    const tr = document.createElement('tr');
+                    tr.style.borderTop = '1px solid rgba(255,255,255,0.03)';
+                    tr.innerHTML = `
+                        <td style="padding:12px 6px; display:flex; align-items:center; gap:10px;">
+                            <span style="width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#e2e8f0; color:#0f172a; font-weight:700; text-transform:uppercase;">${escapeHtml(initials)}</span>
+                            <div style="line-height:1.2;">
+                                <div>${escapeHtml(acc.name)}</div>
+                                <div style="font-size:12px; color:var(--muted);">Admin · Administrator Console</div>
+                            </div>
+                        </td>
+                        <td style="padding:12px 6px">${escapeHtml(acc.email)}</td>
+                        <td style="padding:12px 6px">${escapeHtml(acc.role)}</td>
+                        <td style="padding:12px 6px">
+                            <button class="secondary-btn" data-action="edit" data-id="${acc.id}">Edit</button>
+                            <button class="danger-btn" data-action="revoke" data-id="${acc.id}">Revoke</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            function escapeHtml(s){
+                return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;', '"':'&quot;', "'":"&#39;"})[m] });
+            }
+
+            function showMessage(text, success=true){
+                msgEl.textContent = text;
+                msgEl.style.color = success ? 'var(--muted)' : '#ff8b8b';
+                setTimeout(()=>{ msgEl.textContent = '' }, 4000);
+            }
+
+            function resetForm(){
+                form.removeAttribute('data-edit-id');
+                form.reset();
+                document.getElementById('create-staff-btn').textContent = 'Create Staff';
+            }
+
+            function findAccount(id){
+                return (getAccounts()||[]).find(a=>a.id===id);
+            }
+
+            // form submit
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                const name = fullnameEl.value.trim();
+                const email = emailEl.value.trim().toLowerCase();
+                const password = passwordEl.value;
+                const role = roleEl.value;
+
+                // basic validation
+                if(name.length < 3){ showMessage('Full name must be at least 3 characters', false); return; }
+                if(!/^\S+@\S+\.\S+$/.test(email)){ showMessage('Enter a valid email address', false); return; }
+                if(password.length < 8){ showMessage('Password must be at least 8 characters', false); return; }
+
+                const editId = form.getAttribute('data-edit-id');
+                const accounts = getAccounts() || [];
+
+                if(editId){
+                    const idx = accounts.findIndex(a=>a.id===editId);
+                    if(idx !== -1){
+                        accounts[idx].name = name;
+                        accounts[idx].email = email;
+                        accounts[idx].role = role;
+                        // store password base64 (client-side demo only)
+                        accounts[idx].pwd = btoa(password);
+                        saveAccounts(accounts);
+                        renderAccounts();
+                        resetForm();
+                        showMessage('Account updated');
+                        return;
+                    }
+                }
+
+                // check duplicate email
+                if(accounts.some(a=>a.email === email)){
+                    showMessage('An account with this email already exists', false); return;
+                }
+
+                const newAcc = { id: 'a' + Date.now(), name, email, role, createdAt: new Date().toISOString(), pwd: btoa(password) };
+                accounts.push(newAcc);
+                saveAccounts(accounts);
+                renderAccounts();
+                resetForm();
+                showMessage('Staff account created');
+            });
+
+            // toggle password visibility
+            togglePwd && togglePwd.addEventListener('click', function(){
+                if(passwordEl.type === 'password'){ passwordEl.type = 'text'; togglePwd.textContent = 'Hide'; }
+                else { passwordEl.type = 'password'; togglePwd.textContent = 'Show'; }
+            });
+
+            // reset handler
+            resetBtn && resetBtn.addEventListener('click', function(){ resetForm(); });
+
+            // delegate edit/revoke
+            tbody.addEventListener('click', function(e){
+                const btn = e.target.closest('button');
+                if(!btn) return;
+                const action = btn.getAttribute('data-action');
+                const id = btn.getAttribute('data-id');
+                if(action === 'revoke'){
+                    if(!confirm('Revoke this account?')) return;
+                    let accounts = getAccounts() || [];
+                    accounts = accounts.filter(a=>a.id !== id);
+                    saveAccounts(accounts);
+                    renderAccounts();
+                    showMessage('Account revoked');
+                }else if(action === 'edit'){
+                    const acc = findAccount(id);
+                    if(!acc) return;
+                    fullnameEl.value = acc.name;
+                    emailEl.value = acc.email;
+                    roleEl.value = acc.role || 'Admin';
+                    form.setAttribute('data-edit-id', acc.id);
+                    document.getElementById('create-staff-btn').textContent = 'Update Account';
+                    // switch to Admin Accounts tab if not visible
+                    const tab = document.querySelector('.tab-strip .tab[data-index="1"]');
+                    tab && tab.click();
+                }
+            });
+
+            // initialize
+            ensureSeed();
+            renderAccounts();
+        })();
+    </script>
+</body>
+</html>

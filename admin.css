@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+*{
+    box-sizing: border-box;
+    top: 0;
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+}
+
+body{
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-color: #fff3e4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+}
+
+.header{
+    width: min(90vw, 500px);
+    height: auto;
+    margin-top: 80px;
+    display: block;
+    place-items: center;
+    padding: 40px 40px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.308);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.logo img{
+    max-width: 120px;
+    width: 100%;
+    height: auto;
+}
+
+
+.header .staff{
+    display: block;
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.header .staff h3{
+    font-size: 23px;
+    color:  #2F327D;
+}
+
+.header .staff p{
+    color: #464646;
+    font-size: 12px;
+    line-height: 1.1;
+}
+
+form{
+    display: block;
+}
+
+form .email{
+    display: flex;
+    flex-direction: column;
+     margin-bottom: 25px;
+}
+
+label{
+    display:block;
+    font-size:13px;
+    margin-bottom:6px
+}
+
+.field{
+    margin-bottom:30px;
+}
+
+input[type="email"],input[type="password"]{
+    width:100%;
+    max-width:410px;
+    padding:14px;
+    border-radius:8px;
+    border:1px solid rgba(255, 255, 255, 0.4);
+    color: #464646;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    outline: none;
+    font-size:14px;
+    background: transparent;
+    background-color: transparent;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.034);
+}
+
+@media only screen and (max-width: 600px) {
+    body {
+        padding: 20px 0;
+    }
+
+    .header {
+        width: 100%;
+        margin-top: 40px;
+        padding: 24px;
+        border-radius: 18px;
+    }
+
+    .logo img {
+        max-width: 100px;
+    }
+
+    .header .staff h3 {
+        font-size: 22px;
+    }
+
+    .header .staff p {
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    .field {
+        margin-bottom: 20px;
+    }
+
+    input[type="email"],input[type="password"] {
+        max-width: 100%;
+    }
+
+    form > div {
+        display: block !important;
+        width: 100%;
+    }
+
+    button{
+          width: 100%;
+        justify-content: center;
+    cursor:pointer;
+    padding:16px 134px;
+    border-radius:6px;
+    border:none;
+    background:#8b34e2;
+    font-size: 14px;
+    color:#fff;
+    font-weight:600;
+    transition:all 0.3s ease;
+    }
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px transparent inset !important;
+    box-shadow: 0 0 0px 1000px transparent inset !important;
+    background-color: transparent !important;
+    -webkit-text-fill-color: #0b67ff !important;
+}
+
+.fill{
+    background:#eef6ff;
+    color:#0b67ff;
+    border:1px solid #cfe3ff;
+    padding:8px;
+    border-radius:6px}
+
+    
+.btn-row{
+    display:flex;gap:8px;
+    align-items:center
+}
+        
+button{
+    cursor:pointer;
+    padding:16px 134px;
+    border-radius:6px;
+    border:none;
+    background:#8b34e2;
+    font-size: 14px;
+    margin-bottom: 20px;
+    color:#fff;
+    font-weight:600;
+    transition:all 0.3s ease;
+}
+
+button:active{
+    background-color: #8c3fd7;
+}

@@ -1,0 +1,10 @@
+const fs=require('fs');
+const p='C:/Users/USER/Desktop/Anonymous website/new.html';
+const s=fs.readFileSync(p,'utf8');
+const needle="'Authorization': `";
+const idx=s.indexOf(needle);
+console.log({idx});
+if(idx===-1) process.exit(0);
+const slice=s.slice(idx, idx+30);
+console.log('slice', JSON.stringify(slice));
+for (let i=0;i<slice.length;i++) console.log(i, slice[i], slice.charCodeAt(i));

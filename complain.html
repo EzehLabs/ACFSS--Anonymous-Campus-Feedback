@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Feedback</title>
+    <link rel="stylesheet" href="complain.css">
+</head>
+<body>
+    <div class="header">
+        <div class="anom">
+            <h3>Anonymous Campus Feedback System</h3>
+            <p>Submit complaints, suggestions, or issues directly to the IT Department administration. Your identity is completely hidden � we do not require accounts, track cookies, or save IP addresses.</p>
+        </div>
+
+        <div class="item">
+            <div class="bx">
+                <img src="images/pop.svg" alt="" style="height: 20px;">
+                <p>100% Anonymous</p>
+            </div>
+
+            <div class="bx">
+                <img src="images/cont.svg" alt="" style="height: 20px;">
+                <p>NLP Protection</p>
+            </div>
+
+            <div class="bx">
+                <img src="images/piy.svg" alt="" style="height: 20px;">
+                <p>Zero Logs of IP</p>
+            </div>
+        </div>
+    </div>
+
+    <main class="form-shell">
+        <div class="form-heading">
+            <span class="pill">Submit Suggestion</span>
+            <div class="track-heading">
+                <button type="button" class="track-button" id="trackButton">Track Feedback Status</button>
+            </div>
+        </div>
+
+        <div class="track-panel" id="trackPanel">
+            <h3>Track Feedback Status</h3>
+            <label for="trackingCode">Enter your 8-digit code (e.g. FUTO8A7B)</label>
+            <div class="track-input-row">
+                <input id="trackingCode" type="text" placeholder="Enter your 8-digit code">
+                <button type="button" class="query-btn">Query Status</button>
+            </div>
+        </div>
+
+        <form class="feedback-form" id="feedbackForm">
+            <section class="step-box">
+                <h2>1. Select Feedback Category</h2>
+                <div class="category-list">
+                    <label class="category-item">
+                        <input type="radio" name="category" value="Academic Issues">
+                        <div>
+                            <strong>Academic Issues</strong>
+                            <span>Problems regarding course material, exam schedules, or departmental policies.</span>
+                        </div>
+                    </label>
+
+                    <label class="category-item">
+                        <input type="radio" name="category" value="Lecturer Behaviour">
+                        <div>
+                            <strong>Lecturer Behaviour</strong>
+                            <span>Concerns about late lectures, harassment, or unethical conduct.</span>
+                        </div>
+                    </label>
+
+                    <label class="category-item">
+                        <input type="radio" name="category" value="School Facilities">
+                        <div>
+                            <strong>School Facilities</strong>
+                            <span>Feedback about broken equipment, lab computers, or lecture theatre seats.</span>
+                        </div>
+                    </label>
+
+                    <label class="category-item">
+                        <input type="radio" name="category" value="Hostel Problems">
+                        <div>
+                            <strong>Hostel Problems</strong>
+                            <span>Issues in male/female hostels including sanitation, water, and power.</span>
+                        </div>
+                    </label>
+
+                    <label class="category-item">
+                        <input type="radio" name="category" value="Administrative Issues">
+                        <div>
+                            <strong>Administrative Issues</strong>
+                            <span>Difficulties with registrations, clearance process, or ID cards.</span>
+                        </div>
+                    </label>
+
+                    <label class="category-item">
+                        <input type="radio" name="category" value="General Suggestions">
+                        <div>
+                            <strong>General Suggestions</strong>
+                            <span>Ideas to improve student life or learning experiences in the department.</span>
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <section class="step-box">
+                <h2>2. Describe your complaint or suggestion</h2>
+                <div class="char-count">0 / 2000 chars</div>
+                <textarea name="complaint" id="complaintText" maxlength="2000" placeholder="Write your message here..."></textarea>
+                <p class="helper-text">Provide accurate, honest, and useful feedback (minimum 20 characters). The NLP filter will automatically redact names, phone numbers, and matric numbers before saving.</p>
+                <p class="helper-text">Our NLP pipeline automatically detects and redacts personal names, phone numbers, emails, and matriculation numbers.</p>
+            </section>
+
+            <div id="successMessage" style="display: none; background: #01cc8c; color: white; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                ✓ Feedback submitted successfully! Your reference code is: <strong id="refCode"></strong>
+            </div>
+
+            <div id="errorMessage" style="display: none; background: #ff4b6b; color: white; padding: 16px; border-radius: 8px; margin-bottom: 16px;"></div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">Submit Feedback Anonymously</button>
+        </form>
+    </main>
+    <script src="main.js"></script>
+</body>
+</html>

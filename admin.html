@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin</title>
+    <link rel="stylesheet" href="admin.css">
+    <style>
+        .error-message {
+            color: #ff4b6b;
+            font-size: 14px;
+            margin-top: 8px;
+            display: none;
+        }
+        .error-message.show {
+            display: block;
+        }
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header" role="main" aria-labelledby="authTitle">
+        <!--Logo-->
+        <div class="logo">
+            <img src="images/piy.svg" alt="Logo" style="height: 100px;">
+        </div>
+
+        <!--Staff auth-->
+        <div class="staff">
+            <h3 id="authTitle">Staff Authentication</h3>
+            <p>Single Portal for Admin and Super Admin roles</p>
+        </div>
+
+        <!--Form-->
+        <form id="authForm" novalidate>
+            <!--Staff Email address-->
+            <div class="field email">
+                <label for="email">Staff Email Address</label>
+                <input id="email" name="email" type="email" placeholder="e.g. admin@futo.edu.ng" required>
+            </div>
+
+            <!--Password-->
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" placeholder="Enter password" required>
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+
+
+            <div style="display:flex;justify-content:flex-end">
+                <button id="submitBtn" type="submit">Sign In to Dashboard</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const apiUrl = 'http://localhost:3000';
+
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+            const submitBtn = document.getElementById('submitBtn');
+
+            // Clear previous error
+            errorMessage.classList.remove('show');
+
+            // Validate inputs
+            if (!email || !password) {
+                errorMessage.textContent = 'Email and password are required';
+                errorMessage.classList.add('show');
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
+            submitBtn.textContent = 'Signing in...';
+
+            try {
+                const response = await fetch(`${apiUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    errorMessage.textContent = data.error || 'Login failed';
+                    errorMessage.classList.add('show');
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('loading');
+                    submitBtn.textContent = 'Sign In to Dashboard';
+                    return;
+                }
+
+                // Store token and admin info in localStorage
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('adminInfo', JSON.stringify(data.admin));
+
+                // Redirect to dashboard
+                window.location.href = 'new.html';
+            } catch (error) {
+                console.error('Login error:', error);
+                errorMessage.textContent = 'Connection error. Make sure the server is running.';
+                errorMessage.classList.add('show');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('loading');
+                submitBtn.textContent = 'Sign In to Dashboard';
+            }
+        });
+    </script>
+</body>
+</html>
