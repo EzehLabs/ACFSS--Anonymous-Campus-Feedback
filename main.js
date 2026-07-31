@@ -1,4 +1,4 @@
-const apiUrl = 'http://localhost:3000';
+const apiUrl = window.location.origin;
 
 const menuToggle = document.querySelector('.menu-toggle');
 const navItems = document.querySelector('.nav-item');
