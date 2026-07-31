@@ -57,7 +57,7 @@
     </div>
 
     <script>
-        const apiUrl = 'http://localhost:3000';
+        const apiUrl = window.location.origin;
 
         document.getElementById('authForm').addEventListener('submit', async (e) => {
             e.preventDefault();
