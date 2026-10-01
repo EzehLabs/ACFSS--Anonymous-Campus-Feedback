@@ -109,19 +109,21 @@ body{
     margin-top: 30px;
 }
 
-.nav .study .fb button{
+.nav .study .fb .feedback-link{
+   display: inline-block;
    padding: 12px 26px;
    border-radius: 22px;
    border: 0;
    color: #fff;
    font-size: 14px;
-   font-weight: Semibold;
+   font-weight: 600;
    background-color: #F48C06;
    transition: all 0.2s ease;
    cursor: pointer;
+   text-decoration: none;
 }
 
-.nav .study .fb button:hover{
+.nav .study .fb .feedback-link:hover{
     background-color: #df8208;
 }
 
@@ -296,12 +298,15 @@ body{
 }
 
 .vid #sen .get{
+    display: inline-block;
     border: 1px solid #fff;
     border-radius: 18px;
     padding: 8px 12px;
     color: #fff;
     margin-top: -120px;
     transition: all 0.3s ease;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .vid #sen .get:hover{
@@ -331,12 +336,15 @@ cursor: pointer;
 }
 
 .vid #sus .get{
+    display: inline-block;
     border: 1px solid #fff;
     border-radius: 18px;
     padding: 8px 35px;
     color: #fff;
     margin-top: -120px;
     transition: all 0.3s ease;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .vid #sus .get:hover{
@@ -680,6 +688,8 @@ cursor: pointer;
     }
 
   .nav .big .study {
+    position: relative;
+    z-index: 1;
     width: 100%;
     max-width: 320px;
     height: auto;
