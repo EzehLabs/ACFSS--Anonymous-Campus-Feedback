@@ -251,6 +251,7 @@ function showComplaintDetails(id, { showActions = false } = {}) {
                 <span class="queue-tag complaint-reference">${complaint.reference_code}</span>
                 <span class="queue-date complaint-date">${new Date(complaint.submitted_at).toLocaleString()}</span>
             </div>
+            ${complaint.flagged_for_human_review ? '<p class="review-flag-notice">Flagged for human fact-checking. This is a review signal, not a finding that the claim is false.</p>' : ''}
             <h3 class="queue-title complaint-category">${complaint.category}</h3>
             <p class="queue-copy complaint-description">${complaint.content}</p>
             <div class="complaint-detail-summary" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px;">
@@ -364,7 +365,7 @@ function renderNotifications(allComplaints) {
     container.innerHTML = notifications.map(complaint => `
         <article class="queue-card" data-complaint-id="${complaint.id}">
             <div class="queue-header">
-                <span class="queue-tag">Quarantine Item</span>
+                <span class="queue-tag">${complaint.flagged_for_human_review ? 'Flagged for review' : 'Quarantine Item'}</span>
                 <span class="queue-date">${new Date(complaint.submitted_at).toLocaleDateString()}</span>
             </div>
             <h3 class="queue-title">${safeText(complaint.reference_code)} � ${safeText(complaint.category)}</h3>
@@ -687,39 +688,164 @@ async function loadAdminManagement() {
     }
 }
 
-function showNLPLogs() {
+async function showNLPLogs() {
     const bigxDetails = document.getElementById('bigxDetails');
     if (!bigxDetails) return;
     bigxDetails.innerHTML = `
-        <div style="padding: 24px; color: #334155;">
-            <h3 style="margin-bottom: 16px;">NLP Filter Logs</h3>
-            <p>This section will display the NLP filter log history, including sentiment analysis, content classification, and quarantine decisions.</p>
-            <div style="margin-top: 24px; padding: 20px; background: #f8fafc; border-radius: 16px; border: 1px solid #e5e7eb;">
-                <p style="color: #64748b; margin: 0;">No NLP logs are available yet.</p>
+        <div class="pipeline-panel">
+            <div class="pipeline-panel-heading">
+                <div>
+                    <h3>NLP Filter Logs</h3>
+                    <p>Recent moderation decisions. Message text and detected personal details are never stored in these logs.</p>
+                </div>
+                <button type="button" id="refreshNlpLogsBtn" class="pipeline-button">Refresh</button>
             </div>
+            <div id="nlpLogsMessage" role="status" class="pipeline-message">Loading filter logs…</div>
+            <div id="nlpLogsList" class="nlp-log-list"></div>
         </div>
     `;
+
+    const refreshButton = document.getElementById('refreshNlpLogsBtn');
+    refreshButton.addEventListener('click', loadNlpLogs);
+    await loadNlpLogs();
 }
 
-function showPipelineSettings() {
+async function loadNlpLogs() {
+    const list = document.getElementById('nlpLogsList');
+    const message = document.getElementById('nlpLogsMessage');
+    if (!list || !message) return;
+
+    message.textContent = 'Loading filter logs…';
+    try {
+        const response = await fetch(`${dashboardApiUrl}/api/admin/nlp-logs`);
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Could not load filter logs');
+
+        if (!payload.logs.length) {
+            list.innerHTML = '';
+            message.textContent = 'No submissions have been processed by the filter yet.';
+            return;
+        }
+
+        message.textContent = `Showing ${payload.logs.length} most recent filter event${payload.logs.length === 1 ? '' : 's'}.`;
+        list.innerHTML = payload.logs.map(log => {
+            const reasons = Array.isArray(log.reason_codes) ? log.reason_codes : [];
+            const description = reasons.length
+                ? reasons.map(reason => safeText(reason === 'configured_review_phrase'
+                    ? 'Matched a configured review phrase'
+                    : reason)).join(', ')
+                : 'No review signals detected';
+            const decision = log.decision === 'blocked_personal_information'
+                ? 'Blocked personal information'
+                : log.decision === 'flagged_for_human_review'
+                    ? 'Flagged for staff review'
+                    : 'Accepted';
+            return `
+                <article class="nlp-log-entry">
+                    <div class="nlp-log-entry-header">
+                        <strong>${safeText(decision)}</strong>
+                        <time>${safeText(new Date(log.created_at).toLocaleString())}</time>
+                    </div>
+                    <p>${safeText(log.category)}${log.reference_code ? ` · Reference ${safeText(log.reference_code)}` : ''}</p>
+                    <small>${description}</small>
+                </article>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Failed to load NLP filter logs:', error);
+        message.textContent = error.message || 'Could not load filter logs.';
+        list.innerHTML = '';
+    }
+}
+
+async function showPipelineSettings() {
     const bigxDetails = document.getElementById('bigxDetails');
     if (!bigxDetails) return;
     bigxDetails.innerHTML = `
-        <div style="padding: 24px; color: #334155;">
-            <h3 style="margin-bottom: 16px;">Pipeline Settings</h3>
-            <p>Configure pipeline rules, filtering thresholds, and processing options from this panel.</p>
-            <div style="margin-top: 24px; display: grid; gap: 16px;">
-                <div style="padding: 20px; background: #f8fafc; border-radius: 16px; border: 1px solid #e5e7eb;">
-                    <strong>Automated flagging</strong>
-                    <p style="margin: 8px 0 0; color: #64748b;">Manage automated complaint classification and quarantine behavior.</p>
-                </div>
-                <div style="padding: 20px; background: #f8fafc; border-radius: 16px; border: 1px solid #e5e7eb;">
-                    <strong>Review workflow</strong>
-                    <p style="margin: 8px 0 0; color: #64748b;">Adjust review priorities and notification preferences.</p>
-                </div>
-            </div>
+        <div class="pipeline-panel">
+            <h3>Pipeline Settings</h3>
+            <p>Personal information is always blocked to protect submitters' anonymity. Potentially unverified claims can be flagged for human review.</p>
+            <form id="pipelineSettingsForm" class="pipeline-settings-form">
+                <label class="pipeline-check-row">
+                    <input type="checkbox" checked disabled>
+                    <span><strong>Block personal information</strong><small>Always on. Email, phone, ID numbers, addresses and detected names are rejected before storage.</small></span>
+                </label>
+                <label class="pipeline-check-row" for="flagUnverifiedClaims">
+                    <input id="flagUnverifiedClaims" type="checkbox">
+                    <span><strong>Flag possible unsupported claims</strong><small>Phrase matching sends a submission to staff review; it does not decide whether a claim is true or false.</small></span>
+                </label>
+                <label class="pipeline-field" for="reviewTerms">
+                    <strong>Review-trigger phrases</strong>
+                    <span>One phrase per line. Matching is case-insensitive. Keep these as review signals, not proof of a false claim.</span>
+                    <textarea id="reviewTerms" rows="9" maxlength="4096" placeholder="One phrase per line"></textarea>
+                </label>
+                <p id="pipelineSettingsMessage" class="pipeline-message" role="status"></p>
+                <button id="savePipelineSettingsBtn" type="submit" class="pipeline-button">Save settings</button>
+            </form>
         </div>
     `;
+
+    const form = document.getElementById('pipelineSettingsForm');
+    const message = document.getElementById('pipelineSettingsMessage');
+    const flagCheckbox = document.getElementById('flagUnverifiedClaims');
+    const termsInput = document.getElementById('reviewTerms');
+    const saveButton = document.getElementById('savePipelineSettingsBtn');
+    const canManagePipeline = Boolean(auth.adminInfo.can_create_admins);
+    if (!canManagePipeline) {
+        message.textContent = 'Only the super admin can change these settings. Current rules are shown below.';
+        flagCheckbox.disabled = true;
+        termsInput.disabled = true;
+        saveButton.hidden = true;
+    }
+
+    try {
+        const response = await fetch(`${dashboardApiUrl}/api/admin/pipeline-settings`);
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Could not load pipeline settings');
+        flagCheckbox.checked = payload.settings.flag_unverified_claims;
+        termsInput.value = payload.settings.review_terms.join('\n');
+    } catch (error) {
+        console.error('Failed to load pipeline settings:', error);
+        message.textContent = error.message || 'Could not load pipeline settings.';
+        message.dataset.error = 'true';
+        saveButton.disabled = true;
+        return;
+    }
+
+    if (!canManagePipeline) return;
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const reviewTerms = termsInput.value.split(/\r?\n/).map(term => term.trim()).filter(Boolean);
+        if (reviewTerms.length > 50 || reviewTerms.some(term => term.length > 80)) {
+            message.textContent = 'Use no more than 50 phrases, each 80 characters or fewer.';
+            message.dataset.error = 'true';
+            return;
+        }
+
+        saveButton.disabled = true;
+        message.textContent = 'Saving pipeline settings…';
+        message.dataset.error = 'false';
+        try {
+            const response = await fetch(`${dashboardApiUrl}/api/admin/pipeline-settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    flag_unverified_claims: flagCheckbox.checked,
+                    review_terms: reviewTerms
+                })
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || 'Could not save pipeline settings');
+            termsInput.value = payload.settings.review_terms.join('\n');
+            message.textContent = 'Pipeline settings saved.';
+        } catch (error) {
+            console.error('Failed to save pipeline settings:', error);
+            message.textContent = error.message || 'Could not save pipeline settings.';
+            message.dataset.error = 'true';
+        } finally {
+            saveButton.disabled = false;
+        }
+    });
 }
 
 async function createNewAdmin() {

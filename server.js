@@ -49,6 +49,20 @@ const mailTransporter = process.env.SMTP_HOST && process.env.SMTP_USER &&
 const OTP_LIFETIME_MS = 10 * 60 * 1000;
 const OTP_RESEND_WAIT_MS = 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
+const DEFAULT_REVIEW_TERMS = [
+  'everyone knows',
+  'without evidence',
+  'no evidence',
+  'fraud',
+  'stole',
+  'theft',
+  'corrupt',
+  'harassment',
+  'harass',
+  'assault',
+  'abuse',
+  'cheating'
+];
 
 // Middleware
 app.use(cors());
@@ -133,6 +147,32 @@ async function initializeDatabase() {
       expires_at BIGINT NOT NULL,
       created_at BIGINT NOT NULL,
       attempts INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pipeline_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      flag_unverified_claims BOOLEAN NOT NULL DEFAULT TRUE,
+      review_terms TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(
+    `INSERT INTO pipeline_settings (id, flag_unverified_claims, review_terms)
+     VALUES (1, TRUE, $1)
+     ON CONFLICT (id) DO NOTHING`,
+    [DEFAULT_REVIEW_TERMS]
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nlp_filter_logs (
+      id BIGSERIAL PRIMARY KEY,
+      reference_code TEXT,
+      category TEXT NOT NULL,
+      decision TEXT NOT NULL,
+      reason_codes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
@@ -263,6 +303,17 @@ function detectPersonalInformation(content) {
   }
 
   return [...detected];
+}
+
+function detectReviewFlags(content, reviewTerms) {
+  return reviewTerms.filter(term => {
+    const escapedTerm = term
+      .trim()
+      .split(/\s+/)
+      .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('\\s+');
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${escapedTerm}(?=$|[^\\p{L}\\p{N}])`, 'iu').test(content);
+  });
 }
 
 // Helper function to verify JWT
@@ -613,8 +664,90 @@ app.put('/api/admin/preferences', verifyToken, (req, res) => {
   );
 });
 
+app.get('/api/admin/pipeline-settings', verifyToken, (req, res) => {
+  db.get(
+    'SELECT flag_unverified_claims, review_terms, updated_at FROM pipeline_settings WHERE id = 1',
+    [],
+    (err, settings) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to load pipeline settings' });
+      }
+      if (!settings) {
+        return res.status(500).json({ error: 'Pipeline settings are not initialized' });
+      }
+
+      res.json({
+        success: true,
+        settings: {
+          block_personal_information: true,
+          flag_unverified_claims: settings.flag_unverified_claims,
+          review_terms: settings.review_terms,
+          updated_at: settings.updated_at
+        }
+      });
+    }
+  );
+});
+
+app.put('/api/admin/pipeline-settings', verifyToken, (req, res) => {
+  if (!req.canCreateAdmins) {
+    return res.status(403).json({ error: 'Only the super admin can change pipeline settings' });
+  }
+
+  const { flag_unverified_claims: flagUnverifiedClaims, review_terms: reviewTerms } = req.body;
+  if (
+    typeof flagUnverifiedClaims !== 'boolean' ||
+    !Array.isArray(reviewTerms) ||
+    reviewTerms.length > 50 ||
+    reviewTerms.some(term =>
+      typeof term !== 'string' ||
+      !term.trim() ||
+      term.trim().length > 80 ||
+      /[\r\n]/.test(term)
+    )
+  ) {
+    return res.status(400).json({ error: 'Provide a boolean flag and up to 50 review phrases of 1–80 characters each' });
+  }
+
+  const normalizedTerms = [...new Set(reviewTerms.map(term => term.trim().toLocaleLowerCase()))];
+  db.run(
+    `UPDATE pipeline_settings
+     SET flag_unverified_claims = ?, review_terms = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = 1`,
+    [flagUnverifiedClaims, normalizedTerms],
+    err => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to save pipeline settings' });
+      }
+      res.json({
+        success: true,
+        message: 'Pipeline settings saved',
+        settings: {
+          block_personal_information: true,
+          flag_unverified_claims: flagUnverifiedClaims,
+          review_terms: normalizedTerms
+        }
+      });
+    }
+  );
+});
+
+app.get('/api/admin/nlp-logs', verifyToken, (req, res) => {
+  db.all(
+    `SELECT id, reference_code, category, decision, reason_codes, created_at
+     FROM nlp_filter_logs ORDER BY created_at DESC, id DESC LIMIT 200`,
+    [],
+    (err, logs) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to load NLP filter logs' });
+      }
+      res.json({ success: true, logs });
+    }
+  );
+});
+
 // Submit complaint
-app.post('/api/complaints/submit', (req, res) => {
+app.post('/api/complaints/submit', async (req, res) => {
   const { category, content } = req.body;
 
   const validCategories = [
@@ -640,35 +773,88 @@ app.post('/api/complaints/submit', (req, res) => {
   }
 
   const personalInformation = detectPersonalInformation(normalizedContent);
-  if (personalInformation.length > 0) {
-    return res.status(400).json({
-      error: `For your privacy, remove personal details before submitting. Detected: ${personalInformation.join(', ')}.`
-    });
+  const settingsResult = await query(
+    'SELECT flag_unverified_claims, review_terms FROM pipeline_settings WHERE id = 1'
+  ).catch(error => {
+    console.error('Failed to load pipeline settings for feedback submission:', error);
+    return null;
+  });
+  if (!settingsResult?.rows[0]) {
+    return res.status(503).json({ error: 'Feedback filters are temporarily unavailable. Please try again later.' });
   }
 
+  const pipelineSettings = settingsResult.rows[0];
+  const reviewFlags = pipelineSettings.flag_unverified_claims
+    ? detectReviewFlags(normalizedContent, pipelineSettings.review_terms)
+    : [];
   const referenceCode = generateReferenceCode();
+  const client = await pool.connect().catch(error => {
+    console.error('Failed to connect to the database for feedback submission:', error);
+    return null;
+  });
+  if (!client) {
+    return res.status(503).json({ error: 'Feedback service is temporarily unavailable. Please try again later.' });
+  }
 
-  db.run(
-    'INSERT INTO complaints (reference_code, category, content) VALUES (?, ?, ?)',
-    [referenceCode, category, normalizedContent],
-    (err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to submit complaint' });
-      }
-
-      res.json({
-        success: true,
-        message: 'Complaint submitted successfully',
-        reference_code: referenceCode
+  try {
+    await client.query('BEGIN');
+    if (personalInformation.length > 0) {
+      await client.query(
+        `INSERT INTO nlp_filter_logs (category, decision, reason_codes)
+         VALUES ($1, 'blocked_personal_information', $2)`,
+        [category, personalInformation]
+      );
+      await client.query('COMMIT');
+      return res.status(400).json({
+        error: `For your privacy, remove personal details before submitting. Detected: ${personalInformation.join(', ')}.`
       });
     }
-  );
+
+    await client.query(
+      'INSERT INTO complaints (reference_code, category, content) VALUES ($1, $2, $3) RETURNING id',
+      [referenceCode, category, normalizedContent]
+    );
+    await client.query(
+      `INSERT INTO nlp_filter_logs (reference_code, category, decision, reason_codes)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        referenceCode,
+        category,
+        reviewFlags.length > 0 ? 'flagged_for_human_review' : 'accepted',
+        reviewFlags.length > 0 ? ['configured_review_phrase'] : []
+      ]
+    );
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: reviewFlags.length > 0
+        ? 'Feedback submitted and flagged for staff review.'
+        : 'Feedback submitted successfully',
+      reference_code: referenceCode,
+      flagged_for_review: reviewFlags.length > 0
+    });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(rollbackError => {
+      console.error('Failed to roll back feedback moderation transaction:', rollbackError);
+    });
+    console.error('Failed to process feedback submission:', error);
+    res.status(500).json({ error: 'Failed to process feedback submission' });
+  } finally {
+    client.release();
+  }
 });
 
 // Get all complaints (admin only)
 app.get('/api/complaints', verifyToken, (req, res) => {
   db.all(
-    'SELECT * FROM complaints ORDER BY submitted_at DESC',
+    `SELECT complaints.*,
+            EXISTS (
+              SELECT 1 FROM nlp_filter_logs
+              WHERE nlp_filter_logs.reference_code = complaints.reference_code
+                AND nlp_filter_logs.decision = 'flagged_for_human_review'
+            ) AS flagged_for_human_review
+     FROM complaints ORDER BY submitted_at DESC`,
     [],
     (err, complaints) => {
       if (err) {

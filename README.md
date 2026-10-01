@@ -6,6 +6,15 @@ The application uses PostgreSQL for feedback, admin accounts, dashboard
 preferences, and temporary login verification codes. The database is hosted
 separately from Render, so a Render disk is not needed.
 
+Feedback is checked for personal information before it is stored. Submissions
+containing detected personal details are rejected; the moderation log records
+only the category and detected information types, never the submitted message
+or the personal data itself. Possible unverified claims can be flagged using
+configurable review phrases. Phrase matches are only prompts for staff review:
+the application does not determine whether a statement is true or false.
+Authenticated admins can view filter logs; only the super admin can edit review
+phrases and toggle claim flagging. Personal-information blocking is always on.
+
 1. Create a PostgreSQL project in Neon and copy its pooled connection string
    from the **Connect** dialog. Keep the connection string private.
 2. If you have a surviving SQLite database or backup, import it into the new,

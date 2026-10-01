@@ -1537,3 +1537,143 @@ body{
         transition-duration: 0.01ms !important;
     }
 }
+
+.admin-dashboard .pipeline-panel {
+    color: var(--workspace-ink);
+}
+
+.admin-dashboard .pipeline-panel h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.admin-dashboard .pipeline-panel p {
+    margin: 0;
+    color: var(--workspace-muted);
+    line-height: 1.6;
+}
+
+.admin-dashboard .pipeline-panel-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.admin-dashboard .pipeline-button {
+    min-height: 38px;
+    padding: 9px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--dashboard-accent, #f48c06);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-dashboard .pipeline-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.admin-dashboard .pipeline-settings-form,
+.admin-dashboard .nlp-log-list {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.admin-dashboard .pipeline-check-row,
+.admin-dashboard .nlp-log-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+    border: 1px solid var(--workspace-border);
+    border-radius: 10px;
+    background: var(--workspace-surface);
+}
+
+.admin-dashboard .pipeline-check-row input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin-top: 2px;
+    accent-color: var(--dashboard-accent, #f48c06);
+}
+
+.admin-dashboard .pipeline-check-row span,
+.admin-dashboard .pipeline-field {
+    display: grid;
+    gap: 6px;
+}
+
+.admin-dashboard .pipeline-check-row small,
+.admin-dashboard .pipeline-field > span,
+.admin-dashboard .nlp-log-entry small {
+    color: var(--workspace-muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.admin-dashboard .pipeline-field textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 12px;
+    border: 1px solid var(--workspace-border);
+    border-radius: 8px;
+    background: var(--workspace-surface);
+    color: var(--workspace-ink);
+    font: inherit;
+    resize: vertical;
+}
+
+.admin-dashboard .pipeline-message {
+    min-height: 20px;
+    color: var(--workspace-muted);
+    font-size: 13px;
+}
+
+.admin-dashboard .pipeline-message[data-error="true"] {
+    color: #b42318;
+}
+
+.admin-dashboard .nlp-log-entry {
+    display: grid;
+    gap: 7px;
+}
+
+.admin-dashboard .nlp-log-entry-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.admin-dashboard .nlp-log-entry-header time {
+    color: var(--workspace-muted);
+    font-size: 11px;
+    text-align: right;
+}
+
+.admin-dashboard .review-flag-notice {
+    margin: 12px 0 !important;
+    padding: 11px 13px;
+    border: 1px solid #f4c77d;
+    border-radius: 8px;
+    background: #fff8e8;
+    color: #80520a !important;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+    .admin-dashboard .pipeline-panel-heading,
+    .admin-dashboard .nlp-log-entry-header {
+        flex-direction: column;
+    }
+
+    .admin-dashboard .nlp-log-entry-header time {
+        text-align: left;
+    }
+}
