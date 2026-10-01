@@ -163,20 +163,53 @@
         </div>
     </div>
 </div>
-<!--footer-->
-<div class="footer">
-<div class="first">
-    <p>The service does not provide commercial services. No data is stored in any database.</p>
-    <button class="rep-btn"><a href="complain.html" style="text-decoration: none;color: #ffffffc5;">Report Activity</a></button>
-</div>
-<!--Navigation items-->
-<div class="list-nav">
-    <li><a href="index.html">Home</a></li>
-    <li><a href="#what">How it works</a></li>
-    <li><a href="#feat">Why it matters</a></li>
-    <li><a href="#" onclick="getFaq()">FAQs</a></li>
-</div>
-</div>
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-main">
+            <section class="footer-brand" aria-label="About the Anonymous Campus Feedback System">
+                <a class="footer-brand-name" href="index.html">
+                    <span class="footer-brand-mark" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+                    <span>FUTO FEEDBACK</span>
+                </a>
+                <p>A safer, more inclusive campus starts with your voice. Share concerns and suggestions anonymously.</p>
+                <a class="footer-report-link" href="complain.html">
+                    <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                    Submit feedback anonymously
+                </a>
+            </section>
+
+            <nav class="footer-column" aria-label="Quick links">
+                <h2>Quick links</h2>
+                <a href="index.html">Home</a>
+                <a href="#what">How it works</a>
+                <a href="#feat">Why it matters</a>
+                <a href="#faq" onclick="getFaq(); return false;">FAQs</a>
+            </nav>
+
+            <nav class="footer-column" aria-label="Support">
+                <h2>Support</h2>
+                <a href="complain.html">Submit feedback</a>
+                <a href="complain.html">Feedback &amp; report tracking</a>
+                <a href="admin.html">Staff sign in</a>
+            </nav>
+
+            <section class="footer-column footer-contact">
+                <h2>Contact</h2>
+                <p>Have a concern or suggestion? Reach campus administration through our anonymous feedback form.</p>
+                <a href="complain.html">Report a concern <span aria-hidden="true">→</span></a>
+            </section>
+        </div>
+
+        <div class="footer-bottom">
+            <p>© 2026 FUTO Anonymous Campus Feedback System</p>
+            <div class="footer-bottom-links">
+                <a href="#feat">Privacy &amp; anonymity</a>
+                <a href="complain.html">Submit or track feedback</a>
+                <a href="#top" onclick="window.scrollTo({ top: 0, behavior: 'smooth' }); return false;">Back to top ↑</a>
+            </div>
+        </div>
+    </div>
+</footer>
 
 </body>
 <script src="main.js"></script>
