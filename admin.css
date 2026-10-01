@@ -706,3 +706,82 @@ button:active{
         padding-left: 20px;
     }
 }
+
+.admin-login {
+    --auth-accent: #f48c06;
+    background: #f4f6fa;
+}
+
+.admin-login .auth-aside {
+    background:
+        radial-gradient(ellipse at 86% 14%, rgba(244, 140, 6, 0.24), transparent 34%),
+        radial-gradient(ellipse at 8% 90%, rgba(124, 58, 237, 0.16), transparent 42%),
+        linear-gradient(145deg, #20213e 0%, #2f327d 100%);
+}
+
+.admin-login .auth-main {
+    background:
+        radial-gradient(ellipse at 92% 8%, rgba(244, 140, 6, 0.055), transparent 34%),
+        #fff;
+}
+
+.admin-login .auth-form-shell {
+    width: min(100%, 420px);
+}
+
+.admin-login .auth-form-shell > h2 {
+    margin-bottom: 14px;
+    font-size: 25px;
+    letter-spacing: -0.035em;
+}
+
+.admin-login .restricted-badge {
+    margin-bottom: 18px;
+}
+
+.admin-login .auth-notice {
+    margin-bottom: 22px;
+    padding: 13px 14px;
+    border-radius: 10px;
+    font-size: 11px;
+}
+
+.admin-login .auth-form-shell label {
+    margin-bottom: 7px;
+    font-size: 12px;
+}
+
+.admin-login .auth-form-shell input[type="email"],
+.admin-login .auth-form-shell input[type="password"],
+.admin-login .otp-step input[type="text"] {
+    min-height: 46px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background-color: #f8fafc;
+    font-size: 13px;
+}
+
+.admin-login .auth-form-shell #submitBtn,
+.admin-login .otp-step #verifyOtpBtn {
+    min-height: 48px;
+    border-radius: 10px;
+    background-image: linear-gradient(110deg, #f48c06, #e87900);
+    box-shadow: 0 7px 16px rgba(244, 140, 6, 0.18);
+    font-size: 13px;
+}
+
+.admin-login .auth-form-shell #submitBtn:hover,
+.admin-login .otp-step #verifyOtpBtn:hover {
+    background-image: linear-gradient(110deg, #e87900, #d96e00);
+}
+
+.admin-login .auth-form-shell #submitBtn:disabled,
+.admin-login .otp-step #verifyOtpBtn:disabled {
+    cursor: wait;
+    opacity: 0.75;
+}
+
+.admin-login .account-help {
+    margin-top: 20px;
+    line-height: 1.6;
+}
