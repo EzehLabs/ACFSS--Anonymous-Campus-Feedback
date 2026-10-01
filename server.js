@@ -7,6 +7,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const nlp = require('compromise');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -20,6 +21,10 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM = process.env.RESEND_FROM;
 const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'franklinezeh17@gmail.com').trim().toLowerCase();
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
+const PII_NAME_BLOCKLIST = (process.env.PII_NAME_BLOCKLIST || '')
+  .split(',')
+  .map(name => name.trim().toLowerCase())
+  .filter(Boolean);
 const LEGACY_SUPER_ADMIN_EMAILS = [
   'ezehfranklin@futo.edu.ng',
   'ezehfranklin17@gmail.com'
@@ -221,6 +226,58 @@ function generateReferenceCode() {
   return code;
 }
 
+function detectPersonalInformation(content) {
+  const detected = new Set();
+  const patterns = [
+    {
+      type: 'email address',
+      regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i
+    },
+    {
+      type: 'phone number',
+      regex: /(?<!\d)(?:\+?234|0)[\s().-]?(?:70|80|81|90|91)\d(?:[\s().-]?\d){7}(?!\d)|(?<!\d)0\d{10}(?!\d)|\+\d(?:[\s().-]?\d){8,14}(?!\d)/
+    },
+    {
+      type: 'student registration number',
+      regex: /(?<![A-Z0-9])(?:[A-Z]{2,6}[/\s-])?(?:FUTO[/\s-])?(?:19|20)\d{2}[/\s-](?:(?:[A-Z]{2,5}|\d{1,2})[/\s-])?\d{3,8}(?:[/\s-][A-Z0-9]{1,4})?(?![A-Z0-9])/i
+    },
+    {
+      type: 'government identification number',
+      regex: /\b(?:BVN|NIN|national identification number|social security number|SSN)\D{0,12}\d{11}\b/i
+    },
+    {
+      type: 'date of birth',
+      regex: /\b(?:date of birth|DOB)\D{0,5}\d{1,2}[/. -]\d{1,2}[/. -]\d{2,4}\b/i
+    },
+    {
+      type: 'home address',
+      regex: /\b(?:home address|residential address|my address is|i live at)\s*[:,-]?\s+[^,.!?]{8,80}/i
+    }
+  ];
+
+  for (const { type, regex } of patterns) {
+    if (regex.test(content)) detected.add(type);
+  }
+
+  const contextualNamePattern = /\b(?:my name is|name\s*[:=]|student(?:'s)? name\s*(?:is|:)|lecturer(?:'s)?(?: name)?\s*(?:is|:))\s+([A-Z][\p{L}'’-]*(?:\s+[A-Z][\p{L}'’-]*){0,2})\b/iu;
+  const titledNamePattern = /\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Professor|Lecturer)\.?\s+[A-Z][\p{L}'’-]*(?:\s+[A-Z][\p{L}'’-]*){0,2}\b/u;
+  const recognizedPeople = nlp(content).people().out('array');
+  const containsConfiguredName = PII_NAME_BLOCKLIST.some(name => {
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^\\p{L}])${escapedName}(?=$|[^\\p{L}])`, 'iu').test(content);
+  });
+  if (
+    recognizedPeople.length > 0 ||
+    contextualNamePattern.test(content) ||
+    titledNamePattern.test(content) ||
+    containsConfiguredName
+  ) {
+    detected.add('person name');
+  }
+
+  return [...detected];
+}
+
 // Helper function to verify JWT
 function verifyToken(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
@@ -323,6 +380,20 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    if (normalizedEmail !== SUPER_ADMIN_EMAIL) {
+      return res.json({
+        success: true,
+        otp_required: false,
+        token: createAdminToken(admin),
+        admin: {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          can_create_admins: admin.can_create_admins === 1
+        }
+      });
+    }
+
     if (RESEND_API_KEY && !RESEND_FROM) {
       return res.status(503).json({
         error: 'Email verification is not configured. Set RESEND_FROM to a verified sender address.'
@@ -393,7 +464,12 @@ app.post('/api/auth/login', (req, res) => {
 
 app.post('/api/auth/verify-otp', (req, res) => {
   const { email, code } = req.body;
-  if (!email || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+  if (
+    typeof email !== 'string' ||
+    email.trim().toLowerCase() !== SUPER_ADMIN_EMAIL ||
+    typeof code !== 'string' ||
+    !/^\d{6}$/.test(code)
+  ) {
     return res.status(400).json({ error: 'Enter the 6-digit verification code.' });
   }
 
@@ -402,8 +478,8 @@ app.post('/api/auth/verify-otp', (req, res) => {
             admin_login_otps.attempts
      FROM admins
      JOIN admin_login_otps ON admin_login_otps.admin_id = admins.id
-     WHERE admins.email = ?`,
-    [email],
+     WHERE LOWER(admins.email) = ?`,
+    [SUPER_ADMIN_EMAIL],
     (err, admin) => {
       if (err) return res.status(500).json({ error: 'Unable to verify code' });
       if (!admin) return res.status(401).json({ error: 'Verification code is invalid or expired.' });
@@ -554,15 +630,40 @@ app.put('/api/admin/preferences', verifyToken, (req, res) => {
 app.post('/api/complaints/submit', (req, res) => {
   const { category, content } = req.body;
 
-  if (!category || !content) {
+  const validCategories = [
+    'Academic Issues',
+    'Lecturer Behaviour',
+    'School Facilities',
+    'Hostel Problems',
+    'Administrative Issues',
+    'General Suggestions'
+  ];
+  if (
+    typeof category !== 'string' ||
+    !validCategories.includes(category) ||
+    typeof content !== 'string' ||
+    !content.trim()
+  ) {
     return res.status(400).json({ error: 'Category and content required' });
+  }
+
+  const normalizedContent = content.trim();
+  if (normalizedContent.length < 20 || normalizedContent.length > 2000) {
+    return res.status(400).json({ error: 'Feedback must be between 20 and 2000 characters.' });
+  }
+
+  const personalInformation = detectPersonalInformation(normalizedContent);
+  if (personalInformation.length > 0) {
+    return res.status(400).json({
+      error: `For your privacy, remove personal details before submitting. Detected: ${personalInformation.join(', ')}.`
+    });
   }
 
   const referenceCode = generateReferenceCode();
 
   db.run(
     'INSERT INTO complaints (reference_code, category, content) VALUES (?, ?, ?)',
-    [referenceCode, category, content],
+    [referenceCode, category, normalizedContent],
     (err) => {
       if (err) {
         return res.status(500).json({ error: 'Failed to submit complaint' });

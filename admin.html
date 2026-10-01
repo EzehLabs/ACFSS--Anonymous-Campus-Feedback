@@ -87,7 +87,7 @@
                     <button id="backToSignInBtn" class="back-to-signin" type="button">Back to sign in</button>
                 </section>
 
-                <p class="account-help">Admin accounts are created by a Super Admin.</p>
+                <p class="account-help">Admin accounts are created by a Super Admin. Super Admin sign-ins also require an emailed verification code.</p>
             </div>
         </section>
     </main>
@@ -129,7 +129,7 @@
                 return;
             }
 
-            setButtonLoading(submitBtn, true, 'Sign In', 'Sending code...');
+            setButtonLoading(submitBtn, true, 'Sign In', 'Signing in...');
 
             try {
                 const response = await fetch(`${apiUrl}/api/auth/login`, {
@@ -149,8 +149,15 @@
                     return;
                 }
 
+                if (!data.otp_required && data.token && data.admin) {
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('adminInfo', JSON.stringify(data.admin));
+                    window.location.href = 'new.html';
+                    return;
+                }
+
                 if (!data.otp_required) {
-                    throw new Error('The server did not start email verification.');
+                    throw new Error('The server did not complete sign in.');
                 }
 
                 pendingEmail = email;
@@ -163,7 +170,7 @@
                 console.error('Login error:', error);
                 showMessage(errorMessage, error.message || 'Connection error. Make sure the server is running.');
             } finally {
-                setButtonLoading(submitBtn, false, 'Sign In', 'Sending code...');
+                setButtonLoading(submitBtn, false, 'Sign In', 'Signing in...');
             }
         });
 
