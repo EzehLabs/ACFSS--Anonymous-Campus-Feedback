@@ -138,7 +138,24 @@ body{
     height: 270px;
     margin-top: -65px;
     margin-left: 260px;
-   
+}
+
+.nav .big .girl img{
+    display: block;
+    width: 800px;
+    max-width: none;
+    height: auto;
+    margin-top: 120px;
+}
+
+@media (min-width: 601px) and (max-width: 1440px){
+    .nav .big .girl{
+        margin-left: 100px;
+    }
+
+    .nav .big .girl img{
+        width: 600px;
+    }
 }
 
 .what{
@@ -689,8 +706,12 @@ cursor: pointer;
 
   .nav .big .girl {
     width: 100%;
+    height: auto;
+    min-height: 270px;
     margin: 0;
+    margin-top: -80px;
     display: flex;
+    align-items: flex-start;
     justify-content: center;
   }
 
@@ -698,6 +719,7 @@ cursor: pointer;
     width: 100%;
     max-width: 320px;
     height: auto;
+    flex: 0 1 auto;
     margin-left: 0;
   }
 

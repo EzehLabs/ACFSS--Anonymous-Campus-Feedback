@@ -150,3 +150,25 @@ function getFaq(){
   window.alert("Frequently asked questions is still under construction by the IT team")
   console.log("User clicked the FAQ button")
 }
+
+const heroImage = document.getElementById('heroImage');
+
+if (heroImage) {
+  const heroImages = [
+    {
+      src: 'images/Gemini_Generated_Image_qcdfz8qcdfz8qcdf-removebg-preview.png',
+      alt: 'Student sharing an anonymous campus concern'
+    },
+    {
+      src: 'images/Gemini_Generated_Image_o6pmelo6pmelo6pm__1_-removebg-preview.png',
+      alt: 'Student sharing an anonymous campus concern'
+    }
+  ];
+  let activeHeroImage = 0;
+
+  window.setInterval(() => {
+    activeHeroImage = (activeHeroImage + 1) % heroImages.length;
+    heroImage.src = heroImages[activeHeroImage].src;
+    heroImage.alt = heroImages[activeHeroImage].alt;
+  }, 10000);
+}
