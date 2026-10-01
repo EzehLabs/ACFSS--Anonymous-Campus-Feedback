@@ -16,6 +16,9 @@ const DATABASE_PATH = path.resolve(
 );
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER;
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'ezehfranklin17@gmail.com';
+const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
+const LEGACY_SUPER_ADMIN_EMAIL = 'ezehfranklin@futo.edu.ng';
 const mailTransporter = process.env.SMTP_HOST && process.env.SMTP_USER &&
   process.env.SMTP_PASS && SMTP_FROM
   ? nodemailer.createTransport({
@@ -99,21 +102,57 @@ db.serialize(() => {
     if (err) console.error('Error creating admin login OTP table:', err);
   });
 
-  // Initialize super admin if not exists
-  db.get('SELECT * FROM admins WHERE email = ?', ['ezehfranklin@futo.edu.ng'], (err, row) => {
-    if (!row) {
-      const hashedPassword = bcrypt.hashSync('admin123', 10);
+  initializeSuperAdmin();
+});
+
+function initializeSuperAdmin() {
+  if (!SUPER_ADMIN_PASSWORD) {
+    console.error('Super admin credentials are not configured. Set SUPER_ADMIN_PASSWORD in the environment.');
+    return;
+  }
+
+  db.get('SELECT * FROM admins WHERE email = ?', [LEGACY_SUPER_ADMIN_EMAIL], (err, legacyAdmin) => {
+    if (err) {
+      console.error('Error checking legacy super admin account:', err);
+      return;
+    }
+
+    db.get('SELECT id FROM admins WHERE email = ?', [SUPER_ADMIN_EMAIL], (lookupErr, configuredAdmin) => {
+      if (lookupErr) {
+        console.error('Error checking configured super admin account:', lookupErr);
+        return;
+      }
+
+      if (legacyAdmin && legacyAdmin.id !== configuredAdmin?.id) {
+        const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
+        db.run(
+          'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
+          [SUPER_ADMIN_EMAIL, hashedPassword, legacyAdmin.id],
+          (updateErr) => {
+            if (updateErr) console.error('Error updating super admin credentials:', updateErr);
+            else console.log('Super admin credentials updated from the legacy account.');
+          }
+        );
+        return;
+      }
+
+      if (configuredAdmin) {
+        console.log('Configured super admin account already exists.');
+        return;
+      }
+
+      const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
       db.run(
         'INSERT INTO admins (email, password, name, can_create_admins) VALUES (?, ?, ?, ?)',
-        ['ezehfranklin@futo.edu.ng', hashedPassword, 'Ezeh Franklin', 1],
-        (err) => {
-          if (err) console.error('Error creating super admin:', err);
-          else console.log('Super admin created successfully');
+        [SUPER_ADMIN_EMAIL, hashedPassword, 'Ezeh Franklin', 1],
+        (insertErr) => {
+          if (insertErr) console.error('Error creating super admin:', insertErr);
+          else console.log('Super admin created successfully.');
         }
       );
-    }
+    });
   });
-});
+}
 
 // Helper function to generate reference code
 function generateReferenceCode() {
