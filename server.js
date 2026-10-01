@@ -9,6 +9,9 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const DATABASE_PATH = path.resolve(
+  process.env.DATABASE_PATH || path.join(__dirname, 'complaints.db')
+);
 
 // Middleware
 app.use(cors());
@@ -17,7 +20,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname)));
 
 // Database initialization
-const db = new sqlite3.Database('./complaints.db', (err) => {
+const db = new sqlite3.Database(DATABASE_PATH, (err) => {
   if (err) console.error('Database error:', err);
   else console.log('Connected to SQLite database');
 });
