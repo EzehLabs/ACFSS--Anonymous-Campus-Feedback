@@ -163,35 +163,49 @@ body{
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
-    padding: 8px;
-    border: none;
-    border-radius: 14px;
-    background: transparent;
+    padding: 6px;
+    border: 1px solid #e8ebf0;
+    border-radius: 16px;
+    background: #f8fafc;
     margin-bottom: 10px;
 }
 
 .dashboard .bx .tab{
+    min-width: 0;
     border: 1px solid transparent;
-    border-radius: 9px;
-    padding: 14px 8px;
-    background: #f5f6f7;
+    border-radius: 11px;
+    padding: 13px 10px;
+    background: transparent;
     color: #64748b;
     font-size: 12px;
     font-weight: 600;
-    line-height: 1.25;
+    line-height: 1.4;
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .dashboard .bx .tab:hover{
-    background: #dbdddf;
-    color: #334155;
+    background: #fff;
+    border-color: #e2e8f0;
+    color: #1e293b;
+}
+
+.dashboard .bx .tab[aria-selected="true"]{
+    background: #fff;
+    border-color: rgba(244, 140, 6, 0.35);
+    color: #a65300;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+}
+
+.dashboard .bx .tab:focus-visible{
+    outline: 3px solid rgba(244, 140, 6, 0.35);
+    outline-offset: 2px;
 }
 
 .dashboard .bx .tab:active{
     background: #F48C06;
     color: #fff;
-    box-shadow: 0 4px 10px rgba(244, 140, 6, 0.24);
+    box-shadow: 0 2px 6px rgba(244, 140, 6, 0.24);
 }
 
 .dashboard .bx .queue-card{
@@ -503,5 +517,18 @@ body{
         width: 100%;
         min-height: auto;
         height: auto;
+    }
+}
+
+@media (max-width: 480px){
+    .dashboard .bx .tab-strip{
+        gap: 6px;
+        padding: 5px;
+        border-radius: 14px;
+    }
+
+    .dashboard .bx .tab{
+        padding: 11px 7px;
+        font-size: 11px;
     }
 }
