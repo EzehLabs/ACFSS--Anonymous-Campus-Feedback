@@ -8,13 +8,38 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const nlp = require('compromise');
+const fs = require('fs');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const IS_RENDER = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID);
+const RENDER_DISK_PATH = '/var/data';
+if (IS_RENDER) {
+  if (!process.env.DATABASE_PATH) {
+    console.error(`Refusing to start on Render without DATABASE_PATH. Set it to ${RENDER_DISK_PATH}/complaints.db and attach a persistent disk mounted at ${RENDER_DISK_PATH}.`);
+    process.exit(1);
+  }
+
+  const relativeDatabasePath = path.relative(RENDER_DISK_PATH, path.resolve(process.env.DATABASE_PATH));
+  if (
+    relativeDatabasePath === '..' ||
+    relativeDatabasePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeDatabasePath)
+  ) {
+    console.error(`Refusing to start on Render: DATABASE_PATH must be inside the persistent disk mounted at ${RENDER_DISK_PATH}.`);
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(RENDER_DISK_PATH) || !fs.statSync(RENDER_DISK_PATH).isDirectory()) {
+    console.error(`Refusing to start on Render: ${RENDER_DISK_PATH} is unavailable. Attach a persistent disk mounted at this path.`);
+    process.exit(1);
+  }
+}
 const DATABASE_PATH = path.resolve(
   process.env.DATABASE_PATH || path.join(__dirname, 'complaints.db')
 );
+fs.mkdirSync(path.dirname(DATABASE_PATH), { recursive: true });
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -52,12 +77,35 @@ const OTP_MAX_ATTEMPTS = 5;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  let requestedPath;
+  try {
+    requestedPath = path.resolve(__dirname, `.${decodeURIComponent(req.path)}`);
+  } catch (error) {
+    return res.sendStatus(400);
+  }
+
+  const normalizedRequestedPath = process.platform === 'win32' ? requestedPath.toLowerCase() : requestedPath;
+  const normalizedDatabasePath = process.platform === 'win32' ? DATABASE_PATH.toLowerCase() : DATABASE_PATH;
+  if (
+    normalizedRequestedPath === normalizedDatabasePath ||
+    normalizedRequestedPath.startsWith(`${normalizedDatabasePath}-`)
+  ) {
+    return res.sendStatus(404);
+  }
+
+  next();
+});
 app.use(express.static(path.join(__dirname)));
 
 // Database initialization
 const db = new sqlite3.Database(DATABASE_PATH, (err) => {
-  if (err) console.error('Database error:', err);
-  else console.log('Connected to SQLite database');
+  if (err) {
+    console.error(`Database error opening ${DATABASE_PATH}:`, err);
+    process.exit(1);
+  } else {
+    console.log(`Connected to SQLite database at ${DATABASE_PATH}`);
+  }
 });
 
 // Create tables
