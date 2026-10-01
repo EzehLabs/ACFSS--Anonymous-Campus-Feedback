@@ -561,7 +561,7 @@
 
 
 
-<body>
+<body class="admin-dashboard">
 
 
 
@@ -625,7 +625,8 @@
 
 
 
-                    <img src="images/profile.jpg" alt="">
+                    <img id="adminAvatarImage" alt="Admin profile photo" hidden>
+                    <span id="adminAvatarInitials" aria-hidden="true">AD</span>
 
 
 
@@ -709,8 +710,7 @@
 
 
 
-
-
+                <button id="personalizeBtn" type="button" class="secondary-btn">Personalize</button>
 
 
                 <button id="exportCsvBtn" type="button" class="secondary-btn">Export CSV</button>
@@ -1365,6 +1365,64 @@
         </div>
     </div>
 
+    <dialog id="personalizeDialog" class="personalize-dialog" aria-labelledby="personalizeTitle">
+        <form id="personalizeForm" class="personalize-form">
+            <div class="personalize-heading">
+                <div>
+                    <p class="personalize-eyebrow">YOUR WORKSPACE</p>
+                    <h2 id="personalizeTitle">Personalize dashboard</h2>
+                </div>
+                <button id="closePersonalizeBtn" class="personalize-close" type="button" aria-label="Close">×</button>
+            </div>
+
+            <label class="personalize-field" for="themePreference">
+                <span>Theme</span>
+                <select id="themePreference">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </label>
+
+            <label class="personalize-field" for="accentPreference">
+                <span>Accent color</span>
+                <select id="accentPreference">
+                    <option value="orange">Campus orange</option>
+                    <option value="blue">Blue</option>
+                    <option value="violet">Violet</option>
+                    <option value="green">Green</option>
+                </select>
+            </label>
+
+            <label class="personalize-field" for="densityPreference">
+                <span>Layout density</span>
+                <select id="densityPreference">
+                    <option value="comfortable">Comfortable</option>
+                    <option value="compact">Compact</option>
+                </select>
+            </label>
+
+            <div class="personalize-field">
+                <span>Profile photo</span>
+                <div class="avatar-preview" aria-label="Profile photo preview">
+                    <img id="avatarPreviewImage" alt="">
+                    <span id="avatarPreviewInitials" aria-hidden="true">AD</span>
+                </div>
+                <div class="avatar-controls">
+                    <label class="upload-avatar-btn" for="avatarFile">Choose photo</label>
+                    <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp">
+                    <button id="removeAvatarBtn" class="remove-avatar-btn" type="button">Remove photo</button>
+                </div>
+                <p class="personalize-hint">JPEG, PNG or WebP. The photo is resized before saving.</p>
+            </div>
+
+            <p id="personalizeMessage" class="personalize-message" role="status"></p>
+            <div class="personalize-actions">
+                <button id="cancelPersonalizeBtn" class="personalize-cancel" type="button">Cancel</button>
+                <button id="savePersonalizeBtn" class="personalize-save" type="submit">Save preferences</button>
+            </div>
+        </form>
+    </dialog>
+
     <script src="main.js"></script>
 
 
@@ -1379,10 +1437,6 @@
 
 
 </html>
-
-
-
-
 
 
 

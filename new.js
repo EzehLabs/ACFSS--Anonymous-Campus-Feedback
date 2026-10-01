@@ -30,13 +30,207 @@ function updateAdminDisplay() {
     const adminName = document.getElementById('adminName');
     const adminEmail = document.getElementById('adminEmail');
     const adminBadge = document.getElementById('adminBadge');
+    const initials = document.getElementById('adminAvatarInitials');
+    const previewInitials = document.getElementById('avatarPreviewInitials');
 
     if (adminName) adminName.textContent = adminInfo.name || 'Admin';
     if (adminEmail) adminEmail.textContent = adminInfo.email || '';
     if (adminBadge) adminBadge.textContent = adminInfo.can_create_admins ? '@ SUPER ADMIN' : '@ ADMIN';
+    if (initials) {
+        initials.textContent = (adminInfo.name || 'Admin')
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(part => part[0].toUpperCase())
+            .join('');
+        if (previewInitials) previewInitials.textContent = initials.textContent;
+    }
 }
 
 updateAdminDisplay();
+
+const dashboardPreferences = {
+    theme: 'light',
+    accent: 'orange',
+    density: 'comfortable',
+    avatar_data_url: null
+};
+
+function applyDashboardPreferences() {
+    document.body.dataset.theme = dashboardPreferences.theme;
+    document.body.dataset.accent = dashboardPreferences.accent;
+    document.body.dataset.density = dashboardPreferences.density;
+
+    const avatarImage = document.getElementById('adminAvatarImage');
+    const avatarInitials = document.getElementById('adminAvatarInitials');
+    const previewImage = document.getElementById('avatarPreviewImage');
+    const previewInitials = document.getElementById('avatarPreviewInitials');
+    const hasAvatar = Boolean(dashboardPreferences.avatar_data_url);
+
+    if (previewImage && previewInitials) {
+        previewImage.hidden = !hasAvatar;
+        previewInitials.hidden = hasAvatar;
+        if (hasAvatar) previewImage.src = dashboardPreferences.avatar_data_url;
+        else previewImage.removeAttribute('src');
+    }
+
+    if (avatarImage && avatarInitials) {
+        avatarImage.hidden = !hasAvatar;
+        avatarInitials.hidden = hasAvatar;
+        if (hasAvatar) avatarImage.src = dashboardPreferences.avatar_data_url;
+        else avatarImage.removeAttribute('src');
+    }
+}
+
+async function loadDashboardPreferences() {
+    try {
+        const response = await fetch(`${dashboardApiUrl}/api/admin/preferences`, {
+            headers: { Authorization: `Bearer ${auth.token}` }
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Failed to load preferences');
+
+        Object.assign(dashboardPreferences, payload.preferences);
+        applyDashboardPreferences();
+    } catch (error) {
+        console.error('Error loading dashboard preferences:', error);
+        showPersonalizeMessage('Could not load saved preferences. You can still update them.', true);
+    }
+}
+
+function showPersonalizeMessage(message, isError = false) {
+    const messageElement = document.getElementById('personalizeMessage');
+    if (!messageElement) return;
+    messageElement.textContent = message;
+    messageElement.dataset.error = String(isError);
+}
+
+function setPendingPreferences() {
+    document.getElementById('themePreference').value = dashboardPreferences.theme;
+    document.getElementById('accentPreference').value = dashboardPreferences.accent;
+    document.getElementById('densityPreference').value = dashboardPreferences.density;
+    updateAvatarPreview(dashboardPreferences.avatar_data_url);
+}
+
+function updateAvatarPreview(dataUrl) {
+    const previewImage = document.getElementById('avatarPreviewImage');
+    const previewInitials = document.getElementById('avatarPreviewInitials');
+    if (!previewImage || !previewInitials) return;
+
+    previewImage.hidden = !dataUrl;
+    previewInitials.hidden = Boolean(dataUrl);
+    if (dataUrl) previewImage.src = dataUrl;
+    else previewImage.removeAttribute('src');
+}
+
+async function createAvatarDataUrl(file) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        throw new Error('Choose a JPEG, PNG, or WebP image.');
+    }
+
+    const image = await createImageBitmap(file);
+    try {
+        for (const size of [256, 192, 128]) {
+            const scale = Math.min(1, size / Math.max(image.width, image.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(image.width * scale));
+            canvas.height = Math.max(1, Math.round(image.height * scale));
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Could not process this image.');
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+            for (const quality of [0.8, 0.65, 0.5, 0.4]) {
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                if (dataUrl.length <= 85000) return dataUrl;
+            }
+        }
+    } finally {
+        image.close();
+    }
+
+    throw new Error('This image could not be compressed enough. Choose another photo.');
+}
+
+const personalizeDialog = document.getElementById('personalizeDialog');
+const personalizeForm = document.getElementById('personalizeForm');
+let pendingAvatarDataUrl = dashboardPreferences.avatar_data_url;
+
+document.getElementById('personalizeBtn')?.addEventListener('click', () => {
+    setPendingPreferences();
+    pendingAvatarDataUrl = dashboardPreferences.avatar_data_url;
+    showPersonalizeMessage('');
+    personalizeDialog.showModal();
+});
+
+document.getElementById('closePersonalizeBtn')?.addEventListener('click', () => {
+    personalizeDialog.close();
+});
+
+document.getElementById('cancelPersonalizeBtn')?.addEventListener('click', () => {
+    personalizeDialog.close();
+});
+
+personalizeDialog?.addEventListener('click', (event) => {
+    if (event.target === personalizeDialog) personalizeDialog.close();
+});
+
+document.getElementById('removeAvatarBtn')?.addEventListener('click', () => {
+    pendingAvatarDataUrl = null;
+    document.getElementById('avatarFile').value = '';
+    updateAvatarPreview(null);
+    showPersonalizeMessage('Photo will be removed when you save.');
+});
+
+document.getElementById('avatarFile')?.addEventListener('change', async (event) => {
+    const [file] = event.target.files;
+    if (!file) return;
+
+    try {
+        pendingAvatarDataUrl = await createAvatarDataUrl(file);
+        updateAvatarPreview(pendingAvatarDataUrl);
+        showPersonalizeMessage('Photo ready. Save preferences to apply it.');
+    } catch (error) {
+        showPersonalizeMessage(error.message, true);
+    }
+});
+
+personalizeForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const saveButton = document.getElementById('savePersonalizeBtn');
+    const preferences = {
+        theme: document.getElementById('themePreference').value,
+        accent: document.getElementById('accentPreference').value,
+        density: document.getElementById('densityPreference').value,
+        avatar_data_url: pendingAvatarDataUrl
+    };
+
+    saveButton.disabled = true;
+    showPersonalizeMessage('Saving preferences...');
+
+    try {
+        const response = await fetch(`${dashboardApiUrl}/api/admin/preferences`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${auth.token}`
+            },
+            body: JSON.stringify(preferences)
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Failed to save preferences');
+
+        Object.assign(dashboardPreferences, preferences);
+        applyDashboardPreferences();
+        personalizeDialog.close();
+    } catch (error) {
+        console.error('Error saving dashboard preferences:', error);
+        showPersonalizeMessage(error.message, true);
+    } finally {
+        saveButton.disabled = false;
+    }
+});
+
+loadDashboardPreferences();
 
 function showComplaintDetails(id, { showActions = false } = {}) {
     const complaint = currentComplaints.find(item => item.id === id);

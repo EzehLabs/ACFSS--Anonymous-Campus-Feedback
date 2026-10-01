@@ -53,6 +53,18 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS admin_preferences (
+      admin_id INTEGER PRIMARY KEY,
+      theme TEXT NOT NULL DEFAULT 'light',
+      accent TEXT NOT NULL DEFAULT 'orange',
+      density TEXT NOT NULL DEFAULT 'comfortable',
+      avatar_data_url TEXT
+    )
+  `, (err) => {
+    if (err) console.error('Error creating admin preferences table:', err);
+  });
+
   // Initialize super admin if not exists
   db.get('SELECT * FROM admins WHERE email = ?', ['ezehfranklin@futo.edu.ng'], (err, row) => {
     if (!row) {
@@ -178,6 +190,67 @@ app.post('/api/auth/create-admin', verifyToken, (req, res) => {
 });
 
 // ============ COMPLAINT ROUTES ============
+
+app.get('/api/admin/preferences', verifyToken, (req, res) => {
+  db.get(
+    'SELECT theme, accent, density, avatar_data_url FROM admin_preferences WHERE admin_id = ?',
+    [req.adminId],
+    (err, preferences) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to load dashboard preferences' });
+      }
+
+      res.json({
+        success: true,
+        preferences: preferences || {
+          theme: 'light',
+          accent: 'orange',
+          density: 'comfortable',
+          avatar_data_url: null
+        }
+      });
+    }
+  );
+});
+
+app.put('/api/admin/preferences', verifyToken, (req, res) => {
+  const { theme, accent, density, avatar_data_url: avatarDataUrl } = req.body;
+  const validThemes = ['light', 'dark'];
+  const validAccents = ['orange', 'blue', 'violet', 'green'];
+  const validDensities = ['comfortable', 'compact'];
+  const validAvatar = avatarDataUrl === null || (
+    typeof avatarDataUrl === 'string' &&
+    avatarDataUrl.length <= 85000 &&
+    /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(avatarDataUrl)
+  );
+
+  if (
+    !validThemes.includes(theme) ||
+    !validAccents.includes(accent) ||
+    !validDensities.includes(density) ||
+    !validAvatar
+  ) {
+    return res.status(400).json({ error: 'Invalid dashboard preferences' });
+  }
+
+  db.run(
+    `INSERT INTO admin_preferences (admin_id, theme, accent, density, avatar_data_url)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(admin_id) DO UPDATE SET
+       theme = excluded.theme,
+       accent = excluded.accent,
+       density = excluded.density,
+       avatar_data_url = excluded.avatar_data_url`,
+    [req.adminId, theme, accent, density, avatarDataUrl],
+    (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to save dashboard preferences' });
+      }
+
+      res.json({ success: true, message: 'Dashboard preferences saved' });
+    }
+  );
+});
 
 // Submit complaint
 app.post('/api/complaints/submit', (req, res) => {
