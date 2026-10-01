@@ -16,9 +16,12 @@ const DATABASE_PATH = path.resolve(
 );
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER;
-const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'ezehfranklin17@gmail.com').trim().toLowerCase();
+const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'franklinezeh17@gmail.com').trim().toLowerCase();
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
-const LEGACY_SUPER_ADMIN_EMAIL = 'ezehfranklin@futo.edu.ng';
+const LEGACY_SUPER_ADMIN_EMAILS = [
+  'ezehfranklin@futo.edu.ng',
+  'ezehfranklin17@gmail.com'
+];
 const mailTransporter = process.env.SMTP_HOST && process.env.SMTP_USER &&
   process.env.SMTP_PASS && SMTP_FROM
   ? nodemailer.createTransport({
@@ -111,71 +114,99 @@ function initializeSuperAdmin() {
     return;
   }
 
-  db.get('SELECT * FROM admins WHERE email = ?', [LEGACY_SUPER_ADMIN_EMAIL], (err, legacyAdmin) => {
-    if (err) {
-      console.error('Error checking legacy super admin account:', err);
-      return;
-    }
-
-    db.get('SELECT id FROM admins WHERE email = ?', [SUPER_ADMIN_EMAIL], (lookupErr, configuredAdmin) => {
-      if (lookupErr) {
-        console.error('Error checking configured super admin account:', lookupErr);
+  const legacyPlaceholders = LEGACY_SUPER_ADMIN_EMAILS.map(() => 'LOWER(email) = ?').join(' OR ');
+  const legacyEmailParams = LEGACY_SUPER_ADMIN_EMAILS.map(email => email.toLowerCase());
+  db.all(
+    `SELECT id, email FROM admins WHERE ${legacyPlaceholders} ORDER BY id`,
+    legacyEmailParams,
+    (err, legacyAdmins) => {
+      if (err) {
+        console.error('Error checking previous super admin accounts:', err);
         return;
       }
 
-      if (configuredAdmin) {
-        const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
-        db.run(
-          'UPDATE admins SET password = ?, can_create_admins = 1 WHERE id = ?',
-          [hashedPassword, configuredAdmin.id],
-          (updateErr) => {
-            if (updateErr) {
-              console.error('Error updating configured super admin credentials:', updateErr);
-              return;
-            }
+      db.get('SELECT id FROM admins WHERE LOWER(email) = ?', [SUPER_ADMIN_EMAIL], (lookupErr, configuredAdmin) => {
+        if (lookupErr) {
+          console.error('Error checking configured super admin account:', lookupErr);
+          return;
+        }
 
-            if (legacyAdmin && legacyAdmin.id !== configuredAdmin.id) {
+        if (configuredAdmin) {
+          const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
+          db.run(
+            'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
+            [SUPER_ADMIN_EMAIL, hashedPassword, configuredAdmin.id],
+            (updateErr) => {
+              if (updateErr) {
+                console.error('Error updating configured super admin credentials:', updateErr);
+                return;
+              }
+
+              const previousAccountIds = legacyAdmins
+                .filter(admin => admin.id !== configuredAdmin.id)
+                .map(admin => admin.id);
+              if (previousAccountIds.length === 0) {
+                console.log('Configured super admin credentials updated.');
+                return;
+              }
+
+              const previousPlaceholders = previousAccountIds.map(() => '?').join(', ');
               db.run(
-                'UPDATE admins SET can_create_admins = 0 WHERE id = ?',
-                [legacyAdmin.id],
+                `UPDATE admins SET can_create_admins = 0 WHERE id IN (${previousPlaceholders})`,
+                previousAccountIds,
                 (demoteErr) => {
-                  if (demoteErr) console.error('Error removing legacy super admin privileges:', demoteErr);
-                  else console.log('Configured super admin credentials updated; legacy account demoted.');
+                  if (demoteErr) console.error('Error removing previous super admin privileges:', demoteErr);
+                  else console.log('Configured super admin credentials updated; previous account(s) demoted.');
                 }
               );
-              return;
             }
+          );
+          return;
+        }
 
-            console.log('Configured super admin credentials updated.');
-          }
-        );
-        return;
-      }
+        if (legacyAdmins.length > 0) {
+          const [accountToMigrate, ...accountsToDemote] = legacyAdmins;
+          const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
+          db.run(
+            'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
+            [SUPER_ADMIN_EMAIL, hashedPassword, accountToMigrate.id],
+            (updateErr) => {
+              if (updateErr) {
+                console.error('Error migrating previous super admin credentials:', updateErr);
+                return;
+              }
 
-      if (legacyAdmin) {
+              if (accountsToDemote.length === 0) {
+                console.log('Super admin credentials migrated from a previous account.');
+                return;
+              }
+
+              const previousPlaceholders = accountsToDemote.map(() => '?').join(', ');
+              db.run(
+                `UPDATE admins SET can_create_admins = 0 WHERE id IN (${previousPlaceholders})`,
+                accountsToDemote.map(admin => admin.id),
+                (demoteErr) => {
+                  if (demoteErr) console.error('Error removing previous super admin privileges:', demoteErr);
+                  else console.log('Super admin credentials migrated; remaining previous account(s) demoted.');
+                }
+              );
+            }
+          );
+          return;
+        }
+
         const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
         db.run(
-          'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
-          [SUPER_ADMIN_EMAIL, hashedPassword, legacyAdmin.id],
-          (updateErr) => {
-            if (updateErr) console.error('Error migrating legacy super admin credentials:', updateErr);
-            else console.log('Super admin credentials migrated from the legacy account.');
+          'INSERT INTO admins (email, password, name, can_create_admins) VALUES (?, ?, ?, ?)',
+          [SUPER_ADMIN_EMAIL, hashedPassword, 'Ezeh Franklin', 1],
+          (insertErr) => {
+            if (insertErr) console.error('Error creating super admin:', insertErr);
+            else console.log('Super admin created successfully.');
           }
         );
-        return;
-      }
-
-      const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
-      db.run(
-        'INSERT INTO admins (email, password, name, can_create_admins) VALUES (?, ?, ?, ?)',
-        [SUPER_ADMIN_EMAIL, hashedPassword, 'Ezeh Franklin', 1],
-        (insertErr) => {
-          if (insertErr) console.error('Error creating super admin:', insertErr);
-          else console.log('Super admin created successfully.');
-        }
-      );
-    });
-  });
+      });
+    }
+  );
 }
 
 // Helper function to generate reference code
