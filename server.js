@@ -16,6 +16,8 @@ const DATABASE_PATH = path.resolve(
 );
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_FROM = process.env.RESEND_FROM;
 const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'franklinezeh17@gmail.com').trim().toLowerCase();
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
 const LEGACY_SUPER_ADMIN_EMAILS = [
@@ -263,6 +265,39 @@ function hashLoginOtp(adminId, code) {
     .digest('hex');
 }
 
+async function sendLoginOtpEmail(to, code) {
+  const subject = 'Your ACFSS admin sign-in code';
+  const text = `Your ACFSS verification code is ${code}. It expires in 10 minutes. If you did not try to sign in, you can ignore this email.`;
+  const html = `<p>Your ACFSS verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not try to sign in, you can ignore this email.</p>`;
+
+  if (RESEND_API_KEY) {
+    if (!RESEND_FROM) {
+      throw new Error('RESEND_FROM must be set to a verified sender address when using Resend.');
+    }
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, text, html }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) {
+      const responseBody = (await response.text()).slice(0, 500);
+      throw new Error(`Resend API returned HTTP ${response.status}: ${responseBody}`);
+    }
+    return;
+  }
+
+  if (!mailTransporter) {
+    throw new Error('No email provider is configured.');
+  }
+
+  await mailTransporter.sendMail({ from: SMTP_FROM, to, subject, text, html });
+}
+
 // ============ AUTHENTICATION ROUTES ============
 
 // Verify admin password and send an email OTP
@@ -288,9 +323,15 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    if (!mailTransporter) {
+    if (RESEND_API_KEY && !RESEND_FROM) {
       return res.status(503).json({
-        error: 'Email verification is not configured. Set the SMTP environment variables before signing in.'
+        error: 'Email verification is not configured. Set RESEND_FROM to a verified sender address.'
+      });
+    }
+
+    if (!RESEND_API_KEY && !mailTransporter) {
+      return res.status(503).json({
+        error: 'Email verification is not configured. Set RESEND_API_KEY and RESEND_FROM, or configure the SMTP environment variables.'
       });
     }
 
@@ -329,13 +370,7 @@ app.post('/api/auth/login', (req, res) => {
               return res.status(500).json({ error: 'Unable to start email verification' });
             }
 
-            mailTransporter.sendMail({
-              from: SMTP_FROM,
-              to: admin.email,
-              subject: 'Your ACFSS admin sign-in code',
-              text: `Your ACFSS verification code is ${code}. It expires in 10 minutes. If you did not try to sign in, you can ignore this email.`,
-              html: `<p>Your ACFSS verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not try to sign in, you can ignore this email.</p>`
-            }).then(() => {
+            sendLoginOtpEmail(admin.email, code).then(() => {
               res.json({
                 success: true,
                 otp_required: true,
