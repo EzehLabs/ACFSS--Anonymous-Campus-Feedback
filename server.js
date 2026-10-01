@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const bodyParser = require('body-parser');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -12,6 +14,26 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 const DATABASE_PATH = path.resolve(
   process.env.DATABASE_PATH || path.join(__dirname, 'complaints.db')
 );
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER;
+const mailTransporter = process.env.SMTP_HOST && process.env.SMTP_USER &&
+  process.env.SMTP_PASS && SMTP_FROM
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: SMTP_PORT,
+      secure: process.env.SMTP_SECURE === 'true' || SMTP_PORT === 465,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    })
+  : null;
+const OTP_LIFETIME_MS = 10 * 60 * 1000;
+const OTP_RESEND_WAIT_MS = 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
 
 // Middleware
 app.use(cors());
@@ -65,6 +87,18 @@ db.serialize(() => {
     if (err) console.error('Error creating admin preferences table:', err);
   });
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS admin_login_otps (
+      admin_id INTEGER PRIMARY KEY,
+      code_hash TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0
+    )
+  `, (err) => {
+    if (err) console.error('Error creating admin login OTP table:', err);
+  });
+
   // Initialize super admin if not exists
   db.get('SELECT * FROM admins WHERE email = ?', ['ezehfranklin@futo.edu.ng'], (err, row) => {
     if (!row) {
@@ -109,9 +143,35 @@ function verifyToken(req, res, next) {
   });
 }
 
+function createAdminToken(admin) {
+  return jwt.sign(
+    {
+      id: admin.id,
+      email: admin.email,
+      name: admin.name,
+      can_create_admins: admin.can_create_admins
+    },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+}
+
+function maskEmail(email) {
+  const [name, domain] = email.split('@');
+  if (!domain) return 'your registered email address';
+  return `${name.slice(0, 1)}${'*'.repeat(Math.max(name.length - 1, 3))}@${domain}`;
+}
+
+function hashLoginOtp(adminId, code) {
+  return crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(`${adminId}:${code}`)
+    .digest('hex');
+}
+
 // ============ AUTHENTICATION ROUTES ============
 
-// Admin login
+// Verify admin password and send an email OTP
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
 
@@ -133,29 +193,137 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        can_create_admins: admin.can_create_admins
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    if (!mailTransporter) {
+      return res.status(503).json({
+        error: 'Email verification is not configured. Set the SMTP environment variables before signing in.'
+      });
+    }
 
-    res.json({
-      success: true,
-      token,
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        can_create_admins: admin.can_create_admins === 1
+    const now = Date.now();
+    db.get(
+      'SELECT created_at FROM admin_login_otps WHERE admin_id = ?',
+      [admin.id],
+      (otpErr, existingOtp) => {
+        if (otpErr) {
+          return res.status(500).json({ error: 'Unable to start email verification' });
+        }
+
+        const retryAfter = existingOtp
+          ? OTP_RESEND_WAIT_MS - (now - existingOtp.created_at)
+          : 0;
+        if (retryAfter > 0) {
+          return res.status(429).json({
+            error: 'A verification code was recently sent. Please wait before requesting another.',
+            retry_after_seconds: Math.ceil(retryAfter / 1000)
+          });
+        }
+
+        const code = crypto.randomInt(100000, 1000000).toString();
+        const codeHash = hashLoginOtp(admin.id, code);
+        db.run(
+          `INSERT INTO admin_login_otps (admin_id, code_hash, expires_at, created_at, attempts)
+           VALUES (?, ?, ?, ?, 0)
+           ON CONFLICT(admin_id) DO UPDATE SET
+             code_hash = excluded.code_hash,
+             expires_at = excluded.expires_at,
+             created_at = excluded.created_at,
+             attempts = 0`,
+          [admin.id, codeHash, now + OTP_LIFETIME_MS, now],
+          (saveErr) => {
+            if (saveErr) {
+              return res.status(500).json({ error: 'Unable to start email verification' });
+            }
+
+            mailTransporter.sendMail({
+              from: SMTP_FROM,
+              to: admin.email,
+              subject: 'Your ACFSS admin sign-in code',
+              text: `Your ACFSS verification code is ${code}. It expires in 10 minutes. If you did not try to sign in, you can ignore this email.`,
+              html: `<p>Your ACFSS verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not try to sign in, you can ignore this email.</p>`
+            }).then(() => {
+              res.json({
+                success: true,
+                otp_required: true,
+                message: 'A verification code was sent to your registered email address.',
+                email: maskEmail(admin.email)
+              });
+            }).catch((mailErr) => {
+              console.error('Failed to send admin login OTP:', mailErr);
+              db.run('DELETE FROM admin_login_otps WHERE admin_id = ?', [admin.id], (deleteErr) => {
+                if (deleteErr) console.error('Failed to clear unsent admin login OTP:', deleteErr);
+              });
+              res.status(503).json({ error: 'Could not send the verification email. Please try again later.' });
+            });
+          }
+        );
       }
-    });
+    );
   });
+});
+
+app.post('/api/auth/verify-otp', (req, res) => {
+  const { email, code } = req.body;
+  if (!email || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+    return res.status(400).json({ error: 'Enter the 6-digit verification code.' });
+  }
+
+  db.get(
+    `SELECT admins.*, admin_login_otps.code_hash, admin_login_otps.expires_at,
+            admin_login_otps.attempts
+     FROM admins
+     JOIN admin_login_otps ON admin_login_otps.admin_id = admins.id
+     WHERE admins.email = ?`,
+    [email],
+    (err, admin) => {
+      if (err) return res.status(500).json({ error: 'Unable to verify code' });
+      if (!admin) return res.status(401).json({ error: 'Verification code is invalid or expired.' });
+
+      if (admin.expires_at <= Date.now()) {
+        return db.run('DELETE FROM admin_login_otps WHERE admin_id = ?', [admin.id], (deleteErr) => {
+          if (deleteErr) return res.status(500).json({ error: 'Unable to verify code' });
+          res.status(401).json({ error: 'Verification code expired. Sign in again to get a new code.' });
+        });
+      }
+
+      if (admin.attempts >= OTP_MAX_ATTEMPTS) {
+        return res.status(429).json({ error: 'Too many incorrect codes. Sign in again to request a new code.' });
+      }
+
+      const submittedHash = Buffer.from(hashLoginOtp(admin.id, code), 'hex');
+      const savedHash = Buffer.from(admin.code_hash, 'hex');
+      if (!crypto.timingSafeEqual(submittedHash, savedHash)) {
+        const attempts = admin.attempts + 1;
+        return db.run(
+          'UPDATE admin_login_otps SET attempts = ? WHERE admin_id = ?',
+          [attempts, admin.id],
+          (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: 'Unable to verify code' });
+            const remaining = OTP_MAX_ATTEMPTS - attempts;
+            res.status(401).json({
+              error: remaining > 0
+                ? `Verification code is incorrect. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
+                : 'Too many incorrect codes. Sign in again to request a new code.'
+            });
+          }
+        );
+      }
+
+      db.run('DELETE FROM admin_login_otps WHERE admin_id = ?', [admin.id], (deleteErr) => {
+        if (deleteErr) return res.status(500).json({ error: 'Unable to complete sign in' });
+
+        res.json({
+          success: true,
+          token: createAdminToken(admin),
+          admin: {
+            id: admin.id,
+            email: admin.email,
+            name: admin.name,
+            can_create_admins: admin.can_create_admins === 1
+          }
+        });
+      });
+    }
+  );
 });
 
 // Create new admin (only super admin can do this)

@@ -22,65 +22,114 @@
     </style>
 </head>
 <body class="admin-login">
-    <div class="header" role="main" aria-labelledby="authTitle">
-        <!--Logo-->
-        <div class="logo">
-            <img src="images/piy.svg" alt="Logo" style="height: 100px;">
-        </div>
+    <main class="auth-layout" aria-labelledby="authTitle">
+        <section class="auth-aside" aria-label="Staff portal information">
+            <a class="public-site-link" href="index.html"><span aria-hidden="true">←</span> Public site</a>
 
-        <!--Staff auth-->
-        <div class="staff">
-            <h3 id="authTitle">Staff Authentication</h3>
-            <p>Single Portal for Admin and Super Admin roles</p>
-        </div>
-
-        <!--Form-->
-        <form id="authForm" novalidate>
-            <!--Staff Email address-->
-            <div class="field email">
-                <label for="email">Staff Email Address</label>
-                <input id="email" name="email" type="email" placeholder="e.g. admin@futo.edu.ng" required>
+            <div class="staff-brand">
+                <img src="images/piy.svg" alt="" aria-hidden="true">
+                <div>
+                    <strong>ACFSS</strong>
+                    <span>STAFF CONSOLE</span>
+                </div>
             </div>
 
-            <!--Password-->
-            <div class="field">
-                <label for="password">Password</label>
-                <input id="password" name="password" type="password" placeholder="Enter password" required>
-                <div class="error-message" id="errorMessage"></div>
+            <div class="auth-aside-copy">
+                <h1>Your voice can shape a better campus.</h1>
+                <p>ACFSS gives students and staff a safe way to share concerns and suggestions anonymously, so campus issues can be heard and addressed.</p>
+
+                <ul class="auth-benefits">
+                    <li><span aria-hidden="true">✓</span> Share feedback without revealing your identity</li>
+                    <li><span aria-hidden="true">✓</span> Follow your report using its reference code</li>
+                    <li><span aria-hidden="true">✓</span> Support a safer, more inclusive campus</li>
+                </ul>
             </div>
 
+            <p class="auth-aside-footer">© 2026 ACFSS · Anonymous Campus Feedback &amp; Suggestions</p>
+        </section>
 
-            <div style="display:flex;justify-content:flex-end">
-                <button id="submitBtn" type="submit">Sign In to Dashboard</button>
+        <section class="auth-main" aria-label="Staff sign in">
+            <div class="auth-form-shell">
+                <div class="auth-form-brand">
+                    <img src="images/piy.svg" alt="" aria-hidden="true">
+                    <span>ACFSS</span>
+                </div>
+                <h2 id="authTitle">Staff Sign In</h2>
+                <p class="restricted-badge"><span aria-hidden="true">⌑</span> Restricted area</p>
+                <p class="auth-notice">This entrance is for department staff. Student feedback should be submitted through the <a href="complain.html">public feedback form</a>.</p>
+
+                <form id="authForm" novalidate>
+                    <div class="field">
+                        <label for="email">Staff email address</label>
+                        <input id="email" name="email" type="email" placeholder="name@futo.edu.ng" autocomplete="username" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+                        <div class="error-message" id="errorMessage" role="alert"></div>
+                    </div>
+
+                    <button id="submitBtn" type="submit">Sign In</button>
+                </form>
+
+                <section id="otpStep" class="otp-step" aria-labelledby="otpTitle" hidden>
+                    <h3 id="otpTitle">Verify your email</h3>
+                    <p id="otpNotice">Enter the 6-digit code sent to your registered email address.</p>
+                    <form id="otpForm" novalidate>
+                        <div class="field">
+                            <label for="otpCode">Email verification code</label>
+                            <input id="otpCode" name="otpCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required>
+                            <div class="error-message" id="otpErrorMessage" role="alert"></div>
+                        </div>
+                        <button id="verifyOtpBtn" type="submit">Verify &amp; Sign In</button>
+                    </form>
+                    <button id="backToSignInBtn" class="back-to-signin" type="button">Back to sign in</button>
+                </section>
+
+                <p class="account-help">Admin accounts are created by a Super Admin.</p>
             </div>
-        </form>
-    </div>
+        </section>
+    </main>
 
     <script>
         const apiUrl = window.location.origin;
+        const authForm = document.getElementById('authForm');
+        const otpStep = document.getElementById('otpStep');
+        const otpForm = document.getElementById('otpForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const otpErrorMessage = document.getElementById('otpErrorMessage');
+        const submitBtn = document.getElementById('submitBtn');
+        const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+        const otpCodeInput = document.getElementById('otpCode');
+        const otpNotice = document.getElementById('otpNotice');
+        let pendingEmail = '';
 
-        document.getElementById('authForm').addEventListener('submit', async (e) => {
+        function showMessage(element, message) {
+            element.textContent = message;
+            element.classList.toggle('show', Boolean(message));
+        }
+
+        function setButtonLoading(button, loading, label, loadingLabel) {
+            button.disabled = loading;
+            button.classList.toggle('loading', loading);
+            button.textContent = loading ? loadingLabel : label;
+        }
+
+        authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
-            const errorMessage = document.getElementById('errorMessage');
-            const submitBtn = document.getElementById('submitBtn');
 
-            // Clear previous error
-            errorMessage.classList.remove('show');
+            showMessage(errorMessage, '');
 
-            // Validate inputs
             if (!email || !password) {
-                errorMessage.textContent = 'Email and password are required';
-                errorMessage.classList.add('show');
+                showMessage(errorMessage, 'Email and password are required');
                 return;
             }
 
-            // Show loading state
-            submitBtn.disabled = true;
-            submitBtn.classList.add('loading');
-            submitBtn.textContent = 'Signing in...';
+            setButtonLoading(submitBtn, true, 'Sign In', 'Sending code...');
 
             try {
                 const response = await fetch(`${apiUrl}/api/auth/login`, {
@@ -92,30 +141,75 @@
                 });
 
                 const data = await response.json();
-
                 if (!response.ok) {
-                    errorMessage.textContent = data.error || 'Login failed';
-                    errorMessage.classList.add('show');
-                    submitBtn.disabled = false;
-                    submitBtn.classList.remove('loading');
-                    submitBtn.textContent = 'Sign In to Dashboard';
+                    const wait = data.retry_after_seconds
+                        ? ` Try again in ${data.retry_after_seconds} seconds.`
+                        : '';
+                    showMessage(errorMessage, `${data.error || 'Login failed'}${wait}`);
                     return;
                 }
 
-                // Store token and admin info in localStorage
-                localStorage.setItem('authToken', data.token);
-                localStorage.setItem('adminInfo', JSON.stringify(data.admin));
+                if (!data.otp_required) {
+                    throw new Error('The server did not start email verification.');
+                }
 
-                // Redirect to dashboard
-                window.location.href = 'new.html';
+                pendingEmail = email;
+                otpNotice.textContent = `A 6-digit code was sent to ${data.email}. It expires in 10 minutes.`;
+                authForm.hidden = true;
+                otpStep.hidden = false;
+                showMessage(otpErrorMessage, '');
+                otpCodeInput.focus();
             } catch (error) {
                 console.error('Login error:', error);
-                errorMessage.textContent = 'Connection error. Make sure the server is running.';
-                errorMessage.classList.add('show');
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('loading');
-                submitBtn.textContent = 'Sign In to Dashboard';
+                showMessage(errorMessage, error.message || 'Connection error. Make sure the server is running.');
+            } finally {
+                setButtonLoading(submitBtn, false, 'Sign In', 'Sending code...');
             }
+        });
+
+        otpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = otpCodeInput.value.trim();
+            showMessage(otpErrorMessage, '');
+
+            if (!/^\d{6}$/.test(code)) {
+                showMessage(otpErrorMessage, 'Enter the 6-digit code from your email.');
+                return;
+            }
+
+            setButtonLoading(verifyOtpBtn, true, 'Verify & Sign In', 'Verifying...');
+            try {
+                const response = await fetch(`${apiUrl}/api/auth/verify-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: pendingEmail, code })
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(otpErrorMessage, data.error || 'Code verification failed');
+                    return;
+                }
+
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('adminInfo', JSON.stringify(data.admin));
+                window.location.href = 'new.html';
+            } catch (error) {
+                console.error('OTP verification error:', error);
+                showMessage(otpErrorMessage, 'Connection error. Make sure the server is running.');
+            } finally {
+                setButtonLoading(verifyOtpBtn, false, 'Verify & Sign In', 'Verifying...');
+            }
+        });
+
+        document.getElementById('backToSignInBtn').addEventListener('click', () => {
+            pendingEmail = '';
+            otpForm.reset();
+            showMessage(otpErrorMessage, '');
+            otpStep.hidden = true;
+            authForm.hidden = false;
+            document.getElementById('password').value = '';
+            document.getElementById('password').focus();
         });
     </script>
 </body>
