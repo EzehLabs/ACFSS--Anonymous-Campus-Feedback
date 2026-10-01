@@ -1,34 +1,50 @@
 # Anonymous Campus Feedback System
 
-## Render deployment and database persistence
+## Hosted PostgreSQL setup (Render + Neon)
 
-The application stores feedback and admin accounts in a SQLite database. Render's
-filesystem is ephemeral unless a persistent disk is attached, so the database
-must be stored on that disk to survive restarts and deploys.
+The application uses PostgreSQL for feedback, admin accounts, dashboard
+preferences, and temporary login verification codes. The database is hosted
+separately from Render, so a Render disk is not needed.
 
-For an existing Render web service:
+1. Create a PostgreSQL project in Neon and copy its pooled connection string
+   from the **Connect** dialog. Keep the connection string private.
+2. If you have a surviving SQLite database or backup, import it into the new,
+   empty Neon database before deploying the app (see below). This prevents the
+   app from seeding a new super-admin account before the old accounts are
+   imported.
+3. In Render, open the web service's **Environment** settings and set
+   `DATABASE_URL` to the Neon connection string. Add `SUPER_ADMIN_PASSWORD`
+   and a long, random `JWT_SECRET`; set `SUPER_ADMIN_EMAIL` if the default
+   address is not the intended super-admin account.
+4. Save the environment changes and deploy the updated application. On startup,
+   it creates the required tables and reports `Connected to PostgreSQL database`.
+   It exits with a clear error if `DATABASE_URL` is missing or the database
+   connection/schema initialization fails.
 
-1. Before changing the service or triggering a deploy, back up and download any
-   database file on the currently running instance that contains records you
-   need. Adding a disk or changing the database path does not copy the old file.
-2. Open the service's **Disks** page and attach a persistent disk mounted at
-   `/var/data`. SQLite on a Render disk requires a paid web service and a single
-   service instance.
-3. In **Environment**, set `DATABASE_PATH` to `/var/data/complaints.db`.
-4. Keep `SUPER_ADMIN_PASSWORD` set to the intended super-admin password. Also
-   configure the email provider required for super-admin email verification.
-5. Deploy and check the startup logs. They should say that SQLite connected at
-   `/var/data/complaints.db`. The application refuses to start on Render if the
-   database path is not on the mounted disk or the mount is unavailable.
+Never put real database credentials in source control, browser code, screenshots,
+or chat. A safe placeholder configuration is in `.env.example`; the actual
+`.env` file is ignored by Git.
 
-To migrate a backup, upload it to a separate filename on the mounted disk (for
-example, `/var/data/restore.db`) using Render's Shell and secure file transfer
-options. Then point `DATABASE_PATH` to that uploaded file and redeploy. Do not
-overwrite a database file that the running application is using or that already
-contains records. If data was already lost when an ephemeral instance restarted,
-check for a local backup or an available disk snapshot; deploying this fix
-cannot recreate missing records.
+## Importing existing SQLite data
 
-The database file is not committed to Git and is blocked from static downloads.
-Keep `DATABASE_PATH` on persistent storage in any other deployment environment
-as well.
+The one-time importer reads a local SQLite backup without modifying it and
+copies admins, feedback, preferences, and login codes to the configured
+PostgreSQL database. It creates the PostgreSQL tables, so you can run it before
+the first app deployment. Install/use Node.js 22.13 or newer (the Render
+service currently uses Node 24), set `DATABASE_URL` locally to the Neon
+connection string, and run from the project directory:
+
+```powershell
+$env:DATABASE_URL = "your-Neon-connection-string"
+node .\migrate-sqlite-to-postgres.js
+```
+
+To import a backup at a different location, set `SQLITE_PATH` to that file
+before running the script. The importer skips rows that conflict with records
+already in PostgreSQL; it does not overwrite them. It runs the import in a
+transaction and leaves the source SQLite database untouched. Use a new, empty
+Neon database for the cleanest migration. Back up both databases first. Do not
+deploy an SQLite backup containing records to a public web directory.
+
+This can restore records only if a surviving SQLite database or backup exists.
+Rows already lost from an ephemeral Render filesystem cannot be recreated.

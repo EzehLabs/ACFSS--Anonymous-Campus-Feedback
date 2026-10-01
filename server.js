@@ -1,5 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -8,38 +8,15 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const nlp = require('compromise');
-const fs = require('fs');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const IS_RENDER = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID);
-const RENDER_DISK_PATH = '/var/data';
-if (IS_RENDER) {
-  if (!process.env.DATABASE_PATH) {
-    console.error(`Refusing to start on Render without DATABASE_PATH. Set it to ${RENDER_DISK_PATH}/complaints.db and attach a persistent disk mounted at ${RENDER_DISK_PATH}.`);
-    process.exit(1);
-  }
-
-  const relativeDatabasePath = path.relative(RENDER_DISK_PATH, path.resolve(process.env.DATABASE_PATH));
-  if (
-    relativeDatabasePath === '..' ||
-    relativeDatabasePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativeDatabasePath)
-  ) {
-    console.error(`Refusing to start on Render: DATABASE_PATH must be inside the persistent disk mounted at ${RENDER_DISK_PATH}.`);
-    process.exit(1);
-  }
-
-  if (!fs.existsSync(RENDER_DISK_PATH) || !fs.statSync(RENDER_DISK_PATH).isDirectory()) {
-    console.error(`Refusing to start on Render: ${RENDER_DISK_PATH} is unavailable. Attach a persistent disk mounted at this path.`);
-    process.exit(1);
-  }
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('Database configuration is missing. Set DATABASE_URL to your hosted PostgreSQL connection string.');
+  process.exit(1);
 }
-const DATABASE_PATH = path.resolve(
-  process.env.DATABASE_PATH || path.join(__dirname, 'complaints.db')
-);
-fs.mkdirSync(path.dirname(DATABASE_PATH), { recursive: true });
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -77,66 +54,69 @@ const OTP_MAX_ATTEMPTS = 5;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use((req, res, next) => {
-  let requestedPath;
-  try {
-    requestedPath = path.resolve(__dirname, `.${decodeURIComponent(req.path)}`);
-  } catch (error) {
-    return res.sendStatus(400);
-  }
-
-  const normalizedRequestedPath = process.platform === 'win32' ? requestedPath.toLowerCase() : requestedPath;
-  const normalizedDatabasePath = process.platform === 'win32' ? DATABASE_PATH.toLowerCase() : DATABASE_PATH;
-  if (
-    normalizedRequestedPath === normalizedDatabasePath ||
-    normalizedRequestedPath.startsWith(`${normalizedDatabasePath}-`)
-  ) {
-    return res.sendStatus(404);
-  }
-
-  next();
-});
 app.use(express.static(path.join(__dirname)));
 
-// Database initialization
-const db = new sqlite3.Database(DATABASE_PATH, (err) => {
-  if (err) {
-    console.error(`Database error opening ${DATABASE_PATH}:`, err);
-    process.exit(1);
-  } else {
-    console.log(`Connected to SQLite database at ${DATABASE_PATH}`);
-  }
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: true }
+});
+pool.on('error', error => {
+  console.error('Unexpected PostgreSQL pool error:', error);
 });
 
-// Create tables
-db.serialize(() => {
-  // Admins table
-  db.run(`
+function parameterize(sql) {
+  let index = 0;
+  return sql.replace(/\?/g, () => `$${++index}`);
+}
+
+function query(sql, params = []) {
+  return pool.query(parameterize(sql), params);
+}
+
+const db = {
+  get(sql, params, callback) {
+    query(sql, params)
+      .then(result => callback(null, result.rows[0]))
+      .catch(callback);
+  },
+  all(sql, params, callback) {
+    query(sql, params)
+      .then(result => callback(null, result.rows))
+      .catch(callback);
+  },
+  run(sql, params, callback) {
+    query(sql, params)
+      .then(() => callback(null))
+      .catch(callback);
+  }
+};
+
+async function initializeDatabase() {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS admins (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
-      can_create_admins INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      can_create_admins INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // Complaints table
-  db.run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS complaints (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       reference_code TEXT UNIQUE NOT NULL,
       category TEXT NOT NULL,
       content TEXT NOT NULL,
-      status TEXT DEFAULT 'Unreviewed',
-      priority TEXT DEFAULT 'Medium',
-      sentiment TEXT DEFAULT 'Neutral',
-      submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      status TEXT NOT NULL DEFAULT 'Unreviewed',
+      priority TEXT NOT NULL DEFAULT 'Medium',
+      sentiment TEXT NOT NULL DEFAULT 'Neutral',
+      submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  db.run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS admin_preferences (
       admin_id INTEGER PRIMARY KEY,
       theme TEXT NOT NULL DEFAULT 'light',
@@ -144,124 +124,83 @@ db.serialize(() => {
       density TEXT NOT NULL DEFAULT 'comfortable',
       avatar_data_url TEXT
     )
-  `, (err) => {
-    if (err) console.error('Error creating admin preferences table:', err);
-  });
+  `);
 
-  db.run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS admin_login_otps (
       admin_id INTEGER PRIMARY KEY,
       code_hash TEXT NOT NULL,
-      expires_at INTEGER NOT NULL,
-      created_at INTEGER NOT NULL,
+      expires_at BIGINT NOT NULL,
+      created_at BIGINT NOT NULL,
       attempts INTEGER NOT NULL DEFAULT 0
     )
-  `, (err) => {
-    if (err) console.error('Error creating admin login OTP table:', err);
-  });
+  `);
 
-  initializeSuperAdmin();
-});
+  console.log('Connected to PostgreSQL database.');
+  await initializeSuperAdmin();
+}
 
-function initializeSuperAdmin() {
+async function initializeSuperAdmin() {
   if (!SUPER_ADMIN_PASSWORD) {
     console.error('Super admin credentials are not configured. Set SUPER_ADMIN_PASSWORD in the environment.');
     return;
   }
 
-  const legacyPlaceholders = LEGACY_SUPER_ADMIN_EMAILS.map(() => 'LOWER(email) = ?').join(' OR ');
   const legacyEmailParams = LEGACY_SUPER_ADMIN_EMAILS.map(email => email.toLowerCase());
-  db.all(
-    `SELECT id, email FROM admins WHERE ${legacyPlaceholders} ORDER BY id`,
-    legacyEmailParams,
-    (err, legacyAdmins) => {
-      if (err) {
-        console.error('Error checking previous super admin accounts:', err);
-        return;
-      }
-
-      db.get('SELECT id FROM admins WHERE LOWER(email) = ?', [SUPER_ADMIN_EMAIL], (lookupErr, configuredAdmin) => {
-        if (lookupErr) {
-          console.error('Error checking configured super admin account:', lookupErr);
-          return;
-        }
-
-        if (configuredAdmin) {
-          const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
-          db.run(
-            'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
-            [SUPER_ADMIN_EMAIL, hashedPassword, configuredAdmin.id],
-            (updateErr) => {
-              if (updateErr) {
-                console.error('Error updating configured super admin credentials:', updateErr);
-                return;
-              }
-
-              const previousAccountIds = legacyAdmins
-                .filter(admin => admin.id !== configuredAdmin.id)
-                .map(admin => admin.id);
-              if (previousAccountIds.length === 0) {
-                console.log('Configured super admin credentials updated.');
-                return;
-              }
-
-              const previousPlaceholders = previousAccountIds.map(() => '?').join(', ');
-              db.run(
-                `UPDATE admins SET can_create_admins = 0 WHERE id IN (${previousPlaceholders})`,
-                previousAccountIds,
-                (demoteErr) => {
-                  if (demoteErr) console.error('Error removing previous super admin privileges:', demoteErr);
-                  else console.log('Configured super admin credentials updated; previous account(s) demoted.');
-                }
-              );
-            }
-          );
-          return;
-        }
-
-        if (legacyAdmins.length > 0) {
-          const [accountToMigrate, ...accountsToDemote] = legacyAdmins;
-          const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
-          db.run(
-            'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
-            [SUPER_ADMIN_EMAIL, hashedPassword, accountToMigrate.id],
-            (updateErr) => {
-              if (updateErr) {
-                console.error('Error migrating previous super admin credentials:', updateErr);
-                return;
-              }
-
-              if (accountsToDemote.length === 0) {
-                console.log('Super admin credentials migrated from a previous account.');
-                return;
-              }
-
-              const previousPlaceholders = accountsToDemote.map(() => '?').join(', ');
-              db.run(
-                `UPDATE admins SET can_create_admins = 0 WHERE id IN (${previousPlaceholders})`,
-                accountsToDemote.map(admin => admin.id),
-                (demoteErr) => {
-                  if (demoteErr) console.error('Error removing previous super admin privileges:', demoteErr);
-                  else console.log('Super admin credentials migrated; remaining previous account(s) demoted.');
-                }
-              );
-            }
-          );
-          return;
-        }
-
-        const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
-        db.run(
-          'INSERT INTO admins (email, password, name, can_create_admins) VALUES (?, ?, ?, ?)',
-          [SUPER_ADMIN_EMAIL, hashedPassword, 'Ezeh Franklin', 1],
-          (insertErr) => {
-            if (insertErr) console.error('Error creating super admin:', insertErr);
-            else console.log('Super admin created successfully.');
-          }
-        );
-      });
-    }
+  const legacyPlaceholders = legacyEmailParams.map((_, index) => `$${index + 1}`).join(', ');
+  const { rows: legacyAdmins } = await pool.query(
+    `SELECT id, email FROM admins WHERE LOWER(email) IN (${legacyPlaceholders}) ORDER BY id`,
+    legacyEmailParams
   );
+  const { rows: configuredAdmins } = await query(
+    'SELECT id FROM admins WHERE LOWER(email) = ?',
+    [SUPER_ADMIN_EMAIL]
+  );
+  const configuredAdmin = configuredAdmins[0];
+  const hashedPassword = bcrypt.hashSync(SUPER_ADMIN_PASSWORD, 10);
+
+  if (configuredAdmin) {
+    await query(
+      'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
+      [SUPER_ADMIN_EMAIL, hashedPassword, configuredAdmin.id]
+    );
+    const previousAccountIds = legacyAdmins
+      .filter(admin => admin.id !== configuredAdmin.id)
+      .map(admin => admin.id);
+    if (previousAccountIds.length > 0) {
+      const placeholders = previousAccountIds.map((_, index) => `$${index + 1}`).join(', ');
+      await pool.query(
+        `UPDATE admins SET can_create_admins = 0 WHERE id IN (${placeholders})`,
+        previousAccountIds
+      );
+    }
+    console.log('Configured super admin credentials updated.');
+    return;
+  }
+
+  if (legacyAdmins.length > 0) {
+    const [accountToMigrate, ...accountsToDemote] = legacyAdmins;
+    await query(
+      'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
+      [SUPER_ADMIN_EMAIL, hashedPassword, accountToMigrate.id]
+    );
+    if (accountsToDemote.length > 0) {
+      const accountIds = accountsToDemote.map(admin => admin.id);
+      const placeholders = accountIds.map((_, index) => `$${index + 1}`).join(', ');
+      await pool.query(
+        `UPDATE admins SET can_create_admins = 0 WHERE id IN (${placeholders})`,
+        accountIds
+      );
+    }
+    console.log('Super admin credentials migrated from a previous account.');
+    return;
+  }
+
+  await query(
+    'INSERT INTO admins (email, password, name, can_create_admins) VALUES (?, ?, ?, ?)',
+    [SUPER_ADMIN_EMAIL, hashedPassword, 'Ezeh Franklin', 1]
+  );
+  console.log('Super admin created successfully.');
 }
 
 // Helper function to generate reference code
@@ -600,7 +539,7 @@ app.post('/api/auth/create-admin', verifyToken, (req, res) => {
     [email, hashedPassword, name, 0],
     (err) => {
       if (err) {
-        if (err.message.includes('UNIQUE')) {
+        if (err.code === '23505') {
           return res.status(400).json({ error: 'Email already exists' });
         }
         return res.status(500).json({ error: 'Database error' });
@@ -789,6 +728,10 @@ app.patch('/api/complaints/:id/status', verifyToken, (req, res) => {
     updateValues.push(sentiment);
   }
 
+  if (updateValues.length === 0) {
+    return res.status(400).json({ error: 'At least one complaint field must be provided' });
+  }
+
   // Remove trailing comma and space
   updateQuery = updateQuery.slice(0, -2);
   updateQuery += ' WHERE id = ?';
@@ -803,25 +746,38 @@ app.patch('/api/complaints/:id/status', verifyToken, (req, res) => {
   });
 });
 
-// Start server
-const server = app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Start the HTTP server only after PostgreSQL schema and admin setup finish.
+initializeDatabase()
+  .then(() => {
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use. Set a different PORT or stop the process using this port.`);
-  } else {
-    console.error('Server error:', err);
-  }
-  process.exit(1);
-});
+    server.on('error', err => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Set a different PORT or stop the process using this port.`);
+      } else {
+        console.error('Server error:', err);
+      }
+      pool.end().finally(() => process.exit(1));
+    });
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-  db.close((err) => {
-    if (err) console.error('Error closing database:', err);
-    else console.log('Database closed');
-    process.exit(0);
+    const shutdown = signal => {
+      console.log(`${signal} received; shutting down.`);
+      server.close(() => {
+        pool.end()
+          .then(() => process.exit(0))
+          .catch(error => {
+            console.error('Error closing PostgreSQL connection pool:', error);
+            process.exit(1);
+          });
+      });
+    };
+
+    process.once('SIGINT', () => shutdown('SIGINT'));
+    process.once('SIGTERM', () => shutdown('SIGTERM'));
+  })
+  .catch(error => {
+    console.error('Failed to initialize PostgreSQL database:', error);
+    pool.end().finally(() => process.exit(1));
   });
-});
