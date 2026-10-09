@@ -9,14 +9,21 @@ test('accepts a precise location at the FUTO campus', () => {
   );
 });
 
-test('accepts a precise location within 3 km of FUTO', () => {
+test('accepts a precise location within 5 km of FUTO', () => {
   assert.equal(
     validateFutoLocation({ latitude: 5.405, longitude: 7.0365, accuracy: 50 }).withinCampus,
     true
   );
 });
 
-test('rejects a location outside the 3 km FUTO geofence', () => {
+test('accepts a precise location near the 5 km FUTO geofence boundary', () => {
+  assert.equal(
+    validateFutoLocation({ latitude: 5.4284, longitude: 7.0365, accuracy: 50 }).withinCampus,
+    true
+  );
+});
+
+test('rejects a location outside the 5 km FUTO geofence', () => {
   assert.equal(
     validateFutoLocation({ latitude: 5.43, longitude: 7.0365, accuracy: 50 }).withinCampus,
     false

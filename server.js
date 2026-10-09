@@ -20,9 +20,12 @@ if (!DATABASE_URL) {
 }
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER;
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'ACFSS';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM = process.env.RESEND_FROM;
-const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'franklinezeh17@gmail.com').trim().toLowerCase();
+const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'egembachisom02@gmail.com').trim().toLowerCase();
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
 const PII_NAME_BLOCKLIST = (process.env.PII_NAME_BLOCKLIST || '')
   .split(',')
@@ -30,7 +33,8 @@ const PII_NAME_BLOCKLIST = (process.env.PII_NAME_BLOCKLIST || '')
   .filter(Boolean);
 const LEGACY_SUPER_ADMIN_EMAILS = [
   'ezehfranklin@futo.edu.ng',
-  'ezehfranklin17@gmail.com'
+  'ezehfranklin17@gmail.com',
+  'franklinezeh17@gmail.com'
 ];
 const mailTransporter = process.env.SMTP_HOST && process.env.SMTP_USER &&
   process.env.SMTP_PASS && SMTP_FROM
@@ -366,6 +370,34 @@ async function sendLoginOtpEmail(to, code) {
   const text = `Your ACFSS verification code is ${code}. It expires in 10 minutes. If you did not try to sign in, you can ignore this email.`;
   const html = `<p>Your ACFSS verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not try to sign in, you can ignore this email.</p>`;
 
+  if (BREVO_API_KEY) {
+    if (!BREVO_SENDER_EMAIL) {
+      throw new Error('BREVO_SENDER_EMAIL must be set to a verified sender address when using Brevo.');
+    }
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { email: BREVO_SENDER_EMAIL, name: BREVO_SENDER_NAME },
+        to: [{ email: to }],
+        subject,
+        textContent: text,
+        htmlContent: html
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) {
+      const responseBody = (await response.text()).slice(0, 500);
+      throw new Error(`Brevo API returned HTTP ${response.status}: ${responseBody}`);
+    }
+    return;
+  }
+
   if (RESEND_API_KEY) {
     if (!RESEND_FROM) {
       throw new Error('RESEND_FROM must be set to a verified sender address when using Resend.');
@@ -419,29 +451,21 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    if (normalizedEmail !== SUPER_ADMIN_EMAIL) {
-      return res.json({
-        success: true,
-        otp_required: false,
-        token: createAdminToken(admin),
-        admin: {
-          id: admin.id,
-          email: admin.email,
-          name: admin.name,
-          can_create_admins: admin.can_create_admins === 1
-        }
+    if (BREVO_API_KEY && !BREVO_SENDER_EMAIL) {
+      return res.status(503).json({
+        error: 'Email verification is not configured. Set BREVO_SENDER_EMAIL to a verified sender address.'
       });
     }
 
-    if (RESEND_API_KEY && !RESEND_FROM) {
+    if (!BREVO_API_KEY && RESEND_API_KEY && !RESEND_FROM) {
       return res.status(503).json({
         error: 'Email verification is not configured. Set RESEND_FROM to a verified sender address.'
       });
     }
 
-    if (!RESEND_API_KEY && !mailTransporter) {
+    if (!BREVO_API_KEY && !RESEND_API_KEY && !mailTransporter) {
       return res.status(503).json({
-        error: 'Email verification is not configured. Set RESEND_API_KEY and RESEND_FROM, or configure the SMTP environment variables.'
+        error: 'Email verification is not configured. Set BREVO_API_KEY and BREVO_SENDER_EMAIL, or configure another supported email provider.'
       });
     }
 
@@ -503,9 +527,9 @@ app.post('/api/auth/login', (req, res) => {
 
 app.post('/api/auth/verify-otp', (req, res) => {
   const { email, code } = req.body;
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
   if (
-    typeof email !== 'string' ||
-    email.trim().toLowerCase() !== SUPER_ADMIN_EMAIL ||
+    !normalizedEmail ||
     typeof code !== 'string' ||
     !/^\d{6}$/.test(code)
   ) {
@@ -518,7 +542,7 @@ app.post('/api/auth/verify-otp', (req, res) => {
      FROM admins
      JOIN admin_login_otps ON admin_login_otps.admin_id = admins.id
      WHERE LOWER(admins.email) = ?`,
-    [SUPER_ADMIN_EMAIL],
+    [normalizedEmail],
     (err, admin) => {
       if (err) return res.status(500).json({ error: 'Unable to verify code' });
       if (!admin) return res.status(401).json({ error: 'Verification code is invalid or expired.' });
@@ -758,7 +782,7 @@ app.post('/api/complaints/submit', async (req, res) => {
   }
   if (!location.withinCampus) {
     return res.status(403).json({
-      error: 'Feedback can only be submitted from within 3 km of the FUTO campus.'
+      error: 'Feedback can only be submitted from within 5 km of the FUTO campus.'
     });
   }
 

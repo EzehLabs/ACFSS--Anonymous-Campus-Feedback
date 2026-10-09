@@ -2,7 +2,7 @@ const FUTO_CAMPUS = {
   latitude: 5.3844,
   longitude: 7.0365
 };
-const FUTO_RADIUS_METERS = 3000;
+const FUTO_RADIUS_METERS = 5000;
 const MAX_LOCATION_ACCURACY_METERS = 1000;
 const EARTH_RADIUS_METERS = 6371000;
 

@@ -87,7 +87,7 @@
                     <button id="backToSignInBtn" class="back-to-signin" type="button">Back to sign in</button>
                 </section>
 
-                <p class="account-help">Admin accounts are created by a Super Admin. Super Admin sign-ins also require an emailed verification code.</p>
+                <p class="account-help">Admin accounts are created by a Super Admin. Every admin sign-in requires an emailed verification code.</p>
             </div>
         </section>
     </main>
@@ -149,15 +149,8 @@
                     return;
                 }
 
-                if (!data.otp_required && data.token && data.admin) {
-                    localStorage.setItem('authToken', data.token);
-                    localStorage.setItem('adminInfo', JSON.stringify(data.admin));
-                    window.location.href = 'new.html';
-                    return;
-                }
-
                 if (!data.otp_required) {
-                    throw new Error('The server did not complete sign in.');
+                    throw new Error('Email verification is required to sign in.');
                 }
 
                 pendingEmail = email;

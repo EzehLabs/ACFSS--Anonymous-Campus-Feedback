@@ -15,10 +15,11 @@ the application does not determine whether a statement is true or false.
 Authenticated admins can view filter logs; only the super admin can edit review
 phrases and toggle claim flagging. Personal-information blocking is always on.
 
-Feedback submissions also require browser geolocation within 3 km of the FUTO
-campus. The server checks the submitted coordinates and accuracy but does not
-store them. This is a proximity check, not proof of enrollment; client-reported
-locations can be spoofed.
+Feedback submissions also require browser geolocation within 5 km of the FUTO
+campus, to include nearby areas such as Eziobodo, Obinze, and Umuchima. The
+server checks the submitted coordinates and accuracy but does not store them.
+This is a proximity check, not proof of enrollment; client-reported locations
+can be spoofed.
 
 1. Create a PostgreSQL project in Neon and copy its pooled connection string
    from the **Connect** dialog. Keep the connection string private.
@@ -27,13 +28,25 @@ locations can be spoofed.
    app from seeding a new super-admin account before the old accounts are
    imported.
 3. In Render, open the web service's **Environment** settings and set
-   `DATABASE_URL` to the Neon connection string. Add `SUPER_ADMIN_PASSWORD`
-   and a long, random `JWT_SECRET`; set `SUPER_ADMIN_EMAIL` if the default
-   address is not the intended super-admin account.
-4. Save the environment changes and deploy the updated application. On startup,
+   `DATABASE_URL` to the Neon connection string. Set `SUPER_ADMIN_EMAIL` to
+   `egembachisom02@gmail.com` and `SUPER_ADMIN_PASSWORD` to a strong password
+   in Render's secret environment settings. The app updates/migrates the
+   configured super-admin account on startup. Do not use the weak example
+   password `information` for a privileged account. Set a long, random
+   `JWT_SECRET`.
+4. Configure Brevo for admin sign-in verification: create an API key in Brevo,
+   then set `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` to a verified sender address,
+   and optionally `BREVO_SENDER_NAME` in Render's environment settings. Keep
+   the API key private. Brevo is preferred when configured; Resend or SMTP can
+   be used as a fallback.
+5. Save the environment changes and deploy the updated application. On startup,
    it creates the required tables and reports `Connected to PostgreSQL database`.
    It exits with a clear error if `DATABASE_URL` is missing or the database
    connection/schema initialization fails.
+
+Every administrator, including the super admin, must enter their password and
+then verify a six-digit code sent to their registered email address before
+signing in. Codes expire after 10 minutes and are limited to five attempts.
 
 Never put real database credentials in source control, browser code, screenshots,
 or chat. A safe placeholder configuration is in `.env.example`; the actual
