@@ -266,6 +266,16 @@ body {
     line-height: 1.5;
 }
 
+.location-notice {
+    padding: 14px 16px;
+    border: 1px solid #f6d7b3;
+    border-radius: 12px;
+    background: #fff7ef;
+    color: #464646;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 .challenge-box {
     display: flex;
     align-items: center;

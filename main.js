@@ -37,6 +37,30 @@ if (feedbackForm) {
   const errorMessage = document.getElementById('errorMessage');
   const submitBtn = document.getElementById('submitBtn');
 
+  const getCurrentLocation = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('This browser does not support location verification.'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      position => resolve({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy
+      }),
+      error => {
+        const messages = {
+          1: 'Location permission was denied. Allow location access to submit feedback.',
+          2: 'Your location is unavailable. Check your device location settings and try again.',
+          3: 'Location verification timed out. Please try again.'
+        };
+        reject(new Error(messages[error.code] || 'Could not verify your location. Please try again.'));
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+
   // Character counter
   if (complaintText) {
     complaintText.addEventListener('input', (e) => {
@@ -74,6 +98,7 @@ if (feedbackForm) {
     successMessage.style.display = 'none';
 
     try {
+      const location = await getCurrentLocation();
       const response = await fetch(`${apiUrl}/api/complaints/submit`, {
         method: 'POST',
         headers: {
@@ -81,7 +106,8 @@ if (feedbackForm) {
         },
         body: JSON.stringify({
           category,
-          content: complaint
+          content: complaint,
+          location
         })
       });
 

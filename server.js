@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const nlp = require('compromise');
+const { validateFutoLocation } = require('./location');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -749,6 +750,17 @@ app.get('/api/admin/nlp-logs', verifyToken, (req, res) => {
 // Submit complaint
 app.post('/api/complaints/submit', async (req, res) => {
   const { category, content } = req.body;
+  const location = validateFutoLocation(req.body.location);
+  if (!location.valid) {
+    return res.status(400).json({
+      error: 'Enable location services and submit from a device with a precise location.'
+    });
+  }
+  if (!location.withinCampus) {
+    return res.status(403).json({
+      error: 'Feedback can only be submitted from within 3 km of the FUTO campus.'
+    });
+  }
 
   const validCategories = [
     'Academic Issues',

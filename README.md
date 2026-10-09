@@ -15,6 +15,11 @@ the application does not determine whether a statement is true or false.
 Authenticated admins can view filter logs; only the super admin can edit review
 phrases and toggle claim flagging. Personal-information blocking is always on.
 
+Feedback submissions also require browser geolocation within 3 km of the FUTO
+campus. The server checks the submitted coordinates and accuracy but does not
+store them. This is a proximity check, not proof of enrollment; client-reported
+locations can be spoofed.
+
 1. Create a PostgreSQL project in Neon and copy its pooled connection string
    from the **Connect** dialog. Keep the connection string private.
 2. If you have a surviving SQLite database or backup, import it into the new,
