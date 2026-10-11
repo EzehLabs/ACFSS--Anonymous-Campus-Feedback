@@ -26,6 +26,7 @@ const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'ACFSS';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM = process.env.RESEND_FROM;
 const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'egembachisom02@gmail.com').trim().toLowerCase();
+const SUPER_ADMIN_NAME = (process.env.SUPER_ADMIN_NAME || 'Egemba Chisom').trim();
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
 const PII_NAME_BLOCKLIST = (process.env.PII_NAME_BLOCKLIST || '')
   .split(',')
@@ -206,8 +207,8 @@ async function initializeSuperAdmin() {
 
   if (configuredAdmin) {
     await query(
-      'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
-      [SUPER_ADMIN_EMAIL, hashedPassword, configuredAdmin.id]
+      'UPDATE admins SET email = ?, password = ?, name = ?, can_create_admins = 1 WHERE id = ?',
+      [SUPER_ADMIN_EMAIL, hashedPassword, SUPER_ADMIN_NAME, configuredAdmin.id]
     );
     const previousAccountIds = legacyAdmins
       .filter(admin => admin.id !== configuredAdmin.id)
@@ -226,8 +227,8 @@ async function initializeSuperAdmin() {
   if (legacyAdmins.length > 0) {
     const [accountToMigrate, ...accountsToDemote] = legacyAdmins;
     await query(
-      'UPDATE admins SET email = ?, password = ?, can_create_admins = 1 WHERE id = ?',
-      [SUPER_ADMIN_EMAIL, hashedPassword, accountToMigrate.id]
+      'UPDATE admins SET email = ?, password = ?, name = ?, can_create_admins = 1 WHERE id = ?',
+      [SUPER_ADMIN_EMAIL, hashedPassword, SUPER_ADMIN_NAME, accountToMigrate.id]
     );
     if (accountsToDemote.length > 0) {
       const accountIds = accountsToDemote.map(admin => admin.id);
@@ -243,7 +244,7 @@ async function initializeSuperAdmin() {
 
   await query(
     'INSERT INTO admins (email, password, name, can_create_admins) VALUES (?, ?, ?, ?)',
-    [SUPER_ADMIN_EMAIL, hashedPassword, 'Ezeh Franklin', 1]
+    [SUPER_ADMIN_EMAIL, hashedPassword, SUPER_ADMIN_NAME, 1]
   );
   console.log('Super admin created successfully.');
 }
